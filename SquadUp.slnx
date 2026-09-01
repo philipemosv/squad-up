@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/BuildingBlocks/">
+    <Project Path="src/BuildingBlocks/SquadUp.Contracts/SquadUp.Contracts.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SquadUp.Contracts.Tests/SquadUp.Contracts.Tests.csproj" />
+  </Folder>
+</Solution>
