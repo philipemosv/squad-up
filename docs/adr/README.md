@@ -20,3 +20,5 @@ ADR, link both records, and mark the previous one as superseded.
 | [ADR-000](ADR-000-masstransit-version-and-license.md) | MassTransit version and license baseline | Accepted |
 | [ADR-001](ADR-001-messaging-transports.md) | Local and AWS messaging transports | Accepted |
 | [ADR-002](ADR-002-process-boundaries-and-dependency-direction.md) | Process boundaries and dependency direction | Accepted |
+| [ADR-003](ADR-003-authentication-and-token-boundaries.md) | Authentication and token boundaries | Accepted |
+| [ADR-004](ADR-004-aws-deployment-profiles.md) | AWS deployment profiles and initial region | Accepted |
