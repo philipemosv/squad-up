@@ -90,6 +90,18 @@ baseline.
 - Migration changes require generated SQL review and compatibility evidence.
 - Report commands run, their results, and any check not run with the reason.
 
+## Session handoff
+
+- Treat a validated, committed, and pushed milestone as a natural session
+  boundary.
+- At each milestone, remind the user that starting a fresh Codex session can
+  reduce context usage.
+- Before suggesting a fresh session, provide a concise handoff prompt containing
+  the completed milestone, latest commit, verification status, and next planned
+  step.
+- Keep durable project knowledge in the repository rather than relying only on
+  conversation history.
+
 ## Human approval boundaries
 
 Do not perform these actions without explicit human approval:
