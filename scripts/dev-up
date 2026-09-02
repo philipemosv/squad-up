@@ -4,6 +4,19 @@ set -euo pipefail
 
 repository_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 environment_file="$repository_root/.env"
+compose_arguments=(--project-directory "$repository_root")
+
+for profile in "$@"; do
+  case "$profile" in
+    aws | chaos)
+      compose_arguments+=(--profile "$profile")
+      ;;
+    *)
+      printf 'Unknown profile: %s. Expected aws or chaos.\n' "$profile" >&2
+      exit 2
+      ;;
+  esac
+done
 
 if [[ ! -f "$environment_file" ]]; then
   umask 077
@@ -20,7 +33,7 @@ if [[ ! -f "$environment_file" ]]; then
   printf 'Created %s with random local-only credentials.\n' "$environment_file"
 fi
 
-docker compose --project-directory "$repository_root" up --detach --wait
+docker compose "${compose_arguments[@]}" up --detach --wait
 
 printf '\nLocal platform is ready:\n'
 printf '  RabbitMQ management: http://localhost:15672 (user: squadup)\n'

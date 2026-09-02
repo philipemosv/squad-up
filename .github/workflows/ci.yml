@@ -42,7 +42,7 @@ jobs:
           POSTGRES_PASSWORD: synthetic-config-validation-only
           RABBITMQ_PASSWORD: synthetic-config-validation-only
           REDIS_PASSWORD: synthetic-config-validation-only
-        run: docker compose config --quiet
+        run: docker compose --profile aws --profile chaos config --quiet
 
       - name: Restore locked dependencies
         run: dotnet restore SquadUp.slnx --locked-mode

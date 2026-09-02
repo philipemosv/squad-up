@@ -4,6 +4,10 @@ set -euo pipefail
 
 repository_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 
-docker compose --project-directory "$repository_root" down
+docker compose \
+  --project-directory "$repository_root" \
+  --profile aws \
+  --profile chaos \
+  down
 
 printf 'Containers stopped. Named volumes and local data were preserved.\n'

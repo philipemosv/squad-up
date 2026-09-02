@@ -69,3 +69,37 @@ failing service; inspect that service's logs without pasting `.env` contents.
 
 Tests will use isolated Testcontainers rather than depending on the persistent
 state in this developer Compose stack.
+
+## Optional profiles
+
+Profiles are optional groups of services. They are like extra laboratory
+benches that stay powered off during the normal development loop.
+
+Start the AWS emulator, the network fault injector, or both:
+
+```bash
+./scripts/dev-up aws
+./scripts/dev-up chaos
+./scripts/dev-up aws chaos
+```
+
+The `aws` profile starts LocalStack at <http://localhost:4566> with only SQS,
+SNS, and Secrets Manager enabled. It accepts synthetic local credentials; never
+pass real AWS credentials to this container. LocalStack is an emulator and does
+not prove complete AWS parity.
+
+The `chaos` profile starts the Toxiproxy API at <http://localhost:8474> and
+reserves `localhost:8666` for a future explicitly configured proxy. It starts
+with no proxy or external upstream, so enabling the profile alone cannot send a
+request to Discord or another external service.
+
+Both services run as non-root users, bind host ports only to `127.0.0.1`, and
+are stopped by the normal `./scripts/dev-down` command. LocalStack state uses a
+named volume and is preserved between runs.
+
+Pinned optional dependencies:
+
+| Dependency | Version | License |
+| --- | --- | --- |
+| LocalStack | 4.14.0 | Apache-2.0 |
+| Toxiproxy | 2.12.0 | MIT |
