@@ -1,0 +1,25 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Lobby\SquadUp.LobbyService.Domain\SquadUp.LobbyService.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Lobby\SquadUp.LobbyService.Application\SquadUp.LobbyService.Application.csproj" />
+    <ProjectReference Include="..\..\src\Lobby\SquadUp.LobbyService.Infrastructure\SquadUp.LobbyService.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Lobby\SquadUp.LobbyService.Api\SquadUp.LobbyService.Api.csproj" />
+  </ItemGroup>
+
+</Project>

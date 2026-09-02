@@ -1,0 +1,7 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\SquadUp.LobbyService.Application\SquadUp.LobbyService.Application.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -3,7 +3,14 @@
   <Folder Name="/src/BuildingBlocks/">
     <Project Path="src/BuildingBlocks/SquadUp.Contracts/SquadUp.Contracts.csproj" />
   </Folder>
+  <Folder Name="/src/Lobby/">
+    <Project Path="src/Lobby/SquadUp.LobbyService.Api/SquadUp.LobbyService.Api.csproj" />
+    <Project Path="src/Lobby/SquadUp.LobbyService.Application/SquadUp.LobbyService.Application.csproj" />
+    <Project Path="src/Lobby/SquadUp.LobbyService.Domain/SquadUp.LobbyService.Domain.csproj" />
+    <Project Path="src/Lobby/SquadUp.LobbyService.Infrastructure/SquadUp.LobbyService.Infrastructure.csproj" />
+  </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/SquadUp.ArchitectureTests/SquadUp.ArchitectureTests.csproj" />
     <Project Path="tests/SquadUp.Contracts.Tests/SquadUp.Contracts.Tests.csproj" />
   </Folder>
 </Solution>
