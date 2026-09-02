@@ -1,0 +1,109 @@
+name: Feature or engineering task
+description: Define one small, verifiable product or engineering outcome.
+title: "[Feature]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Keep this issue to one bounded context and one verifiable outcome when possible.
+        Never include secrets, real tokens, production payloads, or unsanitized logs.
+
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+      description: What user, product, learning, or operational outcome should exist when this is done?
+      placeholder: A player can join an eligible recruiting lobby without exceeding its capacity.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: bounded-context
+    attributes:
+      label: Primary area
+      description: Choose the principal owner of the change.
+      options:
+        - API / Identity / Profile
+        - Lobby
+        - Match Orchestrator
+        - Discord Integration
+        - Contracts / Building Blocks
+        - Local Platform / CI
+        - AWS / Terraform
+        - Documentation / Architecture
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context and relevant files
+      description: Explain the current behavior and point to the smallest useful set of files, ADRs, or plan sections.
+    validations:
+      required: true
+
+  - type: textarea
+    id: invariants
+    attributes:
+      label: Invariants and constraints
+      description: Which business rules, trust boundaries, ADRs, compatibility promises, or cost limits must remain true?
+      placeholder: |
+        - MembersCount never exceeds Capacity.
+        - ADR-001 at-least-once semantics apply.
+    validations:
+      required: true
+
+  - type: textarea
+    id: failure-paths
+    attributes:
+      label: Failure paths to consider
+      description: Include relevant concurrency, authorization, duplicate/reordered delivery, timeout, partial failure, rollback, and external-effect scenarios.
+      placeholder: What can fail before, during, and after the state change?
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Executable acceptance criteria
+      description: List observable statements that a test, command, query, or metric can prove.
+      placeholder: |
+        - [ ] Given ..., when ..., then ...
+        - [ ] A negative test proves ...
+        - [ ] The command `...` exits successfully.
+    validations:
+      required: true
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: Tests and verification
+      description: Name the focused tests, integration dependencies, failure injection, and repository gates expected.
+    validations:
+      required: true
+
+  - type: textarea
+    id: data-security
+    attributes:
+      label: Data and security impact
+      description: List new or changed data, its classification, authorized actors, retention, redaction, and negative authorization tests. Write "No change" with a reason when applicable.
+    validations:
+      required: true
+
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Explicitly out of scope
+      description: State adjacent work this issue will not attempt.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: readiness
+    attributes:
+      label: Ready for implementation
+      options:
+        - label: This issue contains no secrets, real tokens, production payloads, or unsanitized logs.
+          required: true
+        - label: The outcome is small enough to review and verify independently.
+          required: true

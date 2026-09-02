@@ -1,0 +1,97 @@
+name: Bug report
+description: Report reproducible incorrect behavior with a proving regression test.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe observable behavior, not only a suspected implementation cause.
+        Sanitize logs and never include secrets, real tokens, cookies, invite codes, or production payloads.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary and impact
+      description: What is wrong, who or what is affected, and how severe is the impact?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Observed area
+      options:
+        - API / Identity / Profile
+        - Lobby
+        - Match Orchestrator
+        - Discord Integration
+        - Messaging / Contracts
+        - Database / Cache
+        - Local Platform / CI
+        - AWS / Terraform
+        - Documentation
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Provide deterministic steps, inputs using synthetic data, concurrency level, and relevant environment/version.
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: State the invariant or externally observable result that should hold.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: State what happens instead, including stable error codes or sanitized evidence.
+    validations:
+      required: true
+
+  - type: textarea
+    id: frequency
+    attributes:
+      label: Frequency and conditions
+      description: Is it deterministic, intermittent, load-related, timing-related, or tied to a dependency failure?
+    validations:
+      required: true
+
+  - type: textarea
+    id: failure-window
+    attributes:
+      label: Suspected failure window
+      description: If relevant, identify what occurs before/after database commit, publish, broker acknowledgement, external effect, timeout, or retry. A hypothesis is optional and must be labeled as such.
+
+  - type: textarea
+    id: regression-test
+    attributes:
+      label: Regression-test acceptance criteria
+      description: Describe the smallest test that should fail before the fix and pass after it, plus important negative cases.
+      placeholder: |
+        - [ ] The test reproduces ... before the fix.
+        - [ ] The same test proves ... after the fix.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Submission safety
+      options:
+        - label: Attached evidence is synthetic or sanitized and contains no Restricted data.
+          required: true
+        - label: I searched existing issues for the same behavior.
+          required: true
