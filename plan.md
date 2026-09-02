@@ -51,7 +51,7 @@ Ao final do roadmap, o Squad-Up deverá demonstrar, em código e em operação, 
 
 ### 1.2 Baseline e decisão de licença do MassTransit
 
-O laboratório começa com **MassTransit 8.5.x**, linha permissiva que contém os recursos necessários e possui pacote compatível com .NET 10 ([MassTransit 8.5.8 no NuGet](https://www.nuget.org/packages/MassTransit/8.5.8)). Fixar uma versão 8.5.x validada em conjunto para todos os pacotes MassTransit, sem ranges, em `Directory.Packages.props` e habilitar lock file do NuGet.
+O laboratório começa com **MassTransit 8.5.x**, linha permissiva que contém os recursos necessários e possui pacote compatível com .NET 10 ([MassTransit 8.5.10 no NuGet](https://www.nuget.org/packages/MassTransit/8.5.10)). Fixar uma versão 8.5.x validada em conjunto para todos os pacotes MassTransit, sem ranges, em `Directory.Packages.props` e habilitar lock file do NuGet.
 
 Na data deste plano, **MassTransit v9 é comercial/source-available**. O fornecedor informa que organizações com receita bruta anual inferior a US$ 1 milhão podem se qualificar para desconto de 100% ([licenciamento MassTransit/Massient](https://massient.com/)). A v9 não é necessária para cumprir o laboratório; é uma decisão futura:
 
@@ -1966,7 +1966,7 @@ O projeto está “completo” para o objetivo de carreira quando o repositório
 - [MassTransit — Exceptions, retry, redelivery and error queues](https://masstransit.io/documentation/concepts/exceptions)
 - [MassTransit — Amazon SQS/SNS](https://masstransit.io/documentation/configuration/transports/amazon-sqs)
 - [MassTransit/Massient licensing](https://massient.com/)
-- [MassTransit 8.5.8 package and target frameworks](https://www.nuget.org/packages/MassTransit/8.5.8)
+- [MassTransit 8.5.10 package and target frameworks](https://www.nuget.org/packages/MassTransit/8.5.10)
 - [Discord OAuth2](https://docs.discord.com/developers/topics/oauth2)
 - [Discord rate limits](https://docs.discord.com/developers/topics/rate-limits)
 - [Discord permissions](https://docs.discord.com/developers/topics/permissions)
