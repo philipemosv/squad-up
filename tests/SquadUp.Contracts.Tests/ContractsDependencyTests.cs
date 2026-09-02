@@ -10,7 +10,7 @@ public sealed class ContractsDependencyTests
     ];
 
     [Fact]
-    public void Contracts_must_not_reference_domain_or_infrastructure_dependencies()
+    public void ContractsMustNotReferenceDomainOrInfrastructureDependencies()
     {
         var referencedAssemblyNames = typeof(ContractsAssembly)
             .Assembly
