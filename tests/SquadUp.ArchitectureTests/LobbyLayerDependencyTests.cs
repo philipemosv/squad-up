@@ -21,7 +21,11 @@ public sealed class LobbyLayerDependencyTests
                 ["SquadUp.LobbyService.Application"]),
             new DependencyRule(
                 "src/Lobby/SquadUp.LobbyService.Api/SquadUp.LobbyService.Api.csproj",
-                ["SquadUp.LobbyService.Application", "SquadUp.LobbyService.Infrastructure"])
+                [
+                    "SquadUp.LobbyService.Application",
+                    "SquadUp.LobbyService.Infrastructure",
+                    "SquadUp.ServiceDefaults"
+                ])
         };
 
         foreach (var rule in rules)

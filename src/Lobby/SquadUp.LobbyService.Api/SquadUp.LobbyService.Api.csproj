@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
+    <ProjectReference Include="..\..\BuildingBlocks\SquadUp.ServiceDefaults\SquadUp.ServiceDefaults.csproj" />
     <ProjectReference Include="..\SquadUp.LobbyService.Application\SquadUp.LobbyService.Application.csproj" />
     <ProjectReference Include="..\SquadUp.LobbyService.Infrastructure\SquadUp.LobbyService.Infrastructure.csproj" />
   </ItemGroup>
