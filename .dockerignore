@@ -1,0 +1,14 @@
+.git
+.github
+.agents
+.codex
+.env
+.idea
+.vs
+.vscode
+**/bin
+**/obj
+**/TestResults
+artifacts
+docs
+tests

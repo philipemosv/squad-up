@@ -78,3 +78,27 @@ dotnet run --project src/Lobby/SquadUp.LobbyService.Api
 ```
 
 Then inspect traces at <http://localhost:16686>.
+
+## Lobby container
+
+The Lobby host uses a multi-stage build and the official .NET 10 Ubuntu
+Chiseled ASP.NET runtime. The runtime has no shell or package manager and
+declares its built-in non-root user. Build context must be the repository root
+because the host references projects outside its own directory.
+
+The build and runtime base images use explicit servicing versions and manifest
+digests. The SDK image currently carries the supported `10.0.400` feature band;
+the repository's `global.json` remains the developer/CI SDK selection and is
+therefore intentionally excluded from the container build context layers.
+
+Run the local container smoke test with:
+
+```bash
+./scripts/test-lobby-container
+```
+
+The script builds the image with locked restore, verifies that its configured
+runtime user is neither empty nor root, and starts it with a read-only root
+filesystem, a bounded temporary filesystem, and no-new-privileges. It then
+probes `/health/ready` from the host because the Chiseled image intentionally
+contains no shell or HTTP diagnostic utility.

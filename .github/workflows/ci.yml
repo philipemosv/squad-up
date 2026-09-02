@@ -64,3 +64,6 @@ jobs:
           --no-build
           --no-restore
           --logger "console;verbosity=normal"
+
+      - name: Build and smoke test Lobby container
+        run: ./scripts/test-lobby-container
