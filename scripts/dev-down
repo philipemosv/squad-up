@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+repository_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+
+docker compose --project-directory "$repository_root" down
+
+printf 'Containers stopped. Named volumes and local data were preserved.\n'

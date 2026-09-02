@@ -37,6 +37,13 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Validate local platform definition
+        env:
+          POSTGRES_PASSWORD: synthetic-config-validation-only
+          RABBITMQ_PASSWORD: synthetic-config-validation-only
+          REDIS_PASSWORD: synthetic-config-validation-only
+        run: docker compose config --quiet
+
       - name: Restore locked dependencies
         run: dotnet restore SquadUp.slnx --locked-mode
 
