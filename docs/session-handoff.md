@@ -7,8 +7,8 @@ current contents of `plan.md` remain authoritative if this document is stale.
 ## Current state
 
 - Branch: `main`; tracked files are synchronized with `origin/main` after the
-  task-workflow milestone push. Untracked `.claude/` worktrees remain local and
-  were deliberately excluded from commits.
+  secret-redaction milestone push. Untracked `.claude/` worktrees remain local
+  and were deliberately excluded from commits.
 - Context workflow milestone: `7dd7d8f docs: add context-efficient ticket
   workflow`. Broad work now uses the repository-local
   `$squad-up-to-tickets` skill, two to five vertical tickets when splitting is
@@ -45,19 +45,27 @@ current contents of `plan.md` remain authoritative if this document is stale.
   not triggered because no public bearer client or refresh token is exposed.
   TM-04 remains only partially mitigated until real identifier endpoints load
   current state and invoke the resource policy with their own negative tests.
-- Next task: Fase 2, item 8, ticket 1 of 3 — define centralized secret-redaction
-  behavior and prove it with canary/failure-path tests. Business audit events
-  remain out of scope for this first ticket.
+- Completed plan item: Fase 2, item 8, ticket 1 of 3 — centralized structured
+  log redaction. `RedactingTextWriterSink` removes Restricted values from named
+  and nested properties, OAuth callback query values, connection strings, and
+  exception messages/stacks before compact JSON is written; only exception type
+  is retained. Canary tests cover authorization, cookies, tokens, Discord body,
+  connection string, OAuth code/state, and exception failure paths.
+- Verification: locked restore, formatter verification, Release CI build, and
+  the complete suite passed — 89 tests, including 73 API integration tests.
+- Next task: Fase 2, item 8, ticket 2 of 3 — add structured audit events for
+  Profile mutations while preserving Profile authorization, antiforgery, and
+  data-classification boundaries. Privileged Identity audit events remain out
+  of scope for that ticket.
 
 ## Next-session prompt
 
-> Continue a Fase 2 do Squad-Up após o milestone de workflow `7dd7d8f` e o
-> funcional `93fa531`. Confirme este handoff contra o Git e use
-> `$squad-up-to-tickets`. Implemente apenas o item 8, ticket 1 de 3: defina a
-> redação central de segredos e prove-a com canary values e testes dos caminhos
-> de falha; audit events de Profile e Identity ficam fora deste ticket. Os gates
-> passaram com 88 testes. Preserve `.claude/` até uma decisão explícita de
-> limpeza.
+> Continue a Fase 2 do Squad-Up após o milestone `2af2551` de redação central
+> de segredos. Confirme este handoff contra o Git e use `$squad-up-to-tickets`.
+> Implemente apenas o item 8, ticket 2 de 3: eventos de auditoria estruturados
+> para mutações de Profile, preservando autorização, antiforgery e classificação
+> de dados. Eventos de Identity ficam fora deste ticket. Os gates passaram com
+> 89 testes. Preserve `.claude/` até uma decisão explícita de limpeza.
 
 ## Milestone history
 
@@ -72,3 +80,4 @@ current contents of `plan.md` remain authoritative if this document is stale.
 | `715b646` | Fase 2 item 6: canonical claims/roles, administrative policies, delegated-role boundary, and Lobby owner-or-moderator authorization harness | 54 tests, repository gates, idempotent migration SQL, and role-escalation/different-user negatives passed |
 | `93fa531` | Fase 2 item 7: protected Profile slice with profile/game/rank CRUD and provisional Dota 2 catalog ownership | 88 tests, hermetic Discord regression test, antiforgery/ownership negatives, migration replay/model check, and non-root API container smoke passed |
 | `7dd7d8f` | Repository-local `to-tickets` adaptation and durable context-efficient task workflow | Skill validation, diff checks, and all repository gates with 88 tests passed |
+| `2af2551` | Fase 2 item 8, ticket 1: centralized structured-log secret redaction | Repository gates and 89 tests passed; canary and failure-path proof added |
