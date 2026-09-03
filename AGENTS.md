@@ -28,6 +28,22 @@ baseline.
 - Preserve unrelated user changes. Do not broaden scope merely to clean up
   nearby code.
 
+## Context-efficient task workflow
+
+- When a request spans multiple bounded contexts or independently verifiable
+  outcomes, use `$squad-up-to-tickets` before implementation. Keep an already
+  atomic request as one ticket; otherwise produce two to five vertical tickets.
+- Execute one ticket per fresh session. Read only its handoff, exact plan
+  section, relevant ADR/threat-model entries, and affected files.
+- Keep tool output targeted: exclude `.claude/`, `bin/`, `obj/`, generated
+  artifacts, broad document dumps, and full diffs unless required. Summarize
+  verification output after checking the actual result.
+- Run focused checks while iterating and the complete repository gates once
+  before each ticket milestone. Commit and push the handoff separately as
+  described below.
+- Follow `docs/development/task-slicing.md` for ticket structure, model/effort
+  selection, security boundaries, and the fresh-session handoff flow.
+
 ## Architecture
 
 - Preserve `Domain <- Application <- Infrastructure <- Host` dependency
