@@ -7,7 +7,7 @@ current contents of `plan.md` remain authoritative if this document is stale.
 ## Current state
 
 - Branch: `main`; tracked files are synchronized with `origin/main` after the
-  Profile audit milestone push.
+  Identity audit milestone push.
 - Context workflow milestone: `7dd7d8f docs: add context-efficient ticket
   workflow`. Broad work now uses the repository-local
   `$squad-up-to-tickets` skill, two to five vertical tickets when splitting is
@@ -64,19 +64,26 @@ current contents of `plan.md` remain authoritative if this document is stale.
   tests, including 74 API integration tests.
 - Limitation: audit events currently use the centralized structured-log sink;
   append-only audit storage, retention, and access controls are not implemented.
-- Next task: Fase 2, item 8, ticket 3 of 3 — add structured audit events for
-  privileged Identity actions, including authorization-negative coverage and
-  proof that Restricted values cannot enter those events. Do not expand Profile
-  audit storage in that ticket.
+- Completed plan item: Fase 2, item 8, ticket 3 of 3 — structured audit events
+  for Identity security actions. Successful Discord sign-in and authenticated
+  logout emit event 2200 with action, result, local actor/target IDs, and
+  correlation ID. The event deliberately excludes the Discord ID, OAuth code,
+  access token, browser cookie, antiforgery token, and client secret.
+- Verification: the OAuth/Identity-focused suite passed 12 tests, covering
+  anonymous logout (401), antiforgery rejection, and allowlisted audit-event
+  fields. Locked restore, formatter verification, Release CI build, and the
+  complete suite passed — 92 tests, including 76 API integration tests.
+- Next task: Fase 2, item 9 — assess the existing Discord OAuth HTTP test
+  double against the planned CI contract and implement only any missing
+  independently verifiable behavior.
 
 ## Next-session prompt
 
-> Continue a Fase 2 do Squad-Up após o milestone `aed5f8e` de auditoria de
-> mutações de Profile. Confirme este handoff contra o Git e use
-> `$squad-up-to-tickets`. Implemente apenas o item 8, ticket 3 de 3: eventos
-> de auditoria estruturados para ações privilegiadas de Identity, com negativas
-> de autorização e prova de que valores Restricted não entram nos eventos. Os
-> gates passaram com 90 testes.
+> Continue a Fase 2 do Squad-Up após o milestone `fcbbf6c` de auditoria das
+> ações de segurança de Identity. Confirme este handoff contra o Git e use
+> `$squad-up-to-tickets`. Avalie somente o item 9: se o test double atual do
+> Discord OAuth já provar o contrato de CI, registre a evidência; caso contrário,
+> implemente a menor lacuna verificável. Os gates passaram com 92 testes.
 
 ## Milestone history
 
@@ -93,3 +100,4 @@ current contents of `plan.md` remain authoritative if this document is stale.
 | `7dd7d8f` | Repository-local `to-tickets` adaptation and durable context-efficient task workflow | Skill validation, diff checks, and all repository gates with 88 tests passed |
 | `2af2551` | Fase 2 item 8, ticket 1: centralized structured-log secret redaction | Repository gates and 89 tests passed; canary and failure-path proof added |
 | `aed5f8e` | Fase 2 item 8, ticket 2: structured audit events for Profile mutations | Repository gates and 90 tests passed; success, validation-failure, correlation, and field-exclusion coverage added |
+| `fcbbf6c` | Fase 2 item 8, ticket 3: structured audit events for Identity security actions | Repository gates and 92 tests passed; anonymous/antiforgery negatives and Restricted-field exclusion coverage added |
