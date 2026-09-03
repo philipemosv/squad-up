@@ -78,7 +78,7 @@ Esses itens não são proibidos. Eles ficam fora do MVP para preservar profundid
 ### 2.1 Bounded contexts e responsabilidades
 
 | Componente implantável | Responsabilidade | Dados próprios | Interfaces |
-|---|---|---|---|
+|---|---|
 | `SquadUp.Api` | Edge/BFF, Discord OAuth2, ASP.NET Core Identity, perfil, emissão/renovação de tokens, rate limiting de entrada e fachada para lobbies | `identity` e `profile` | HTTP público; HTTP interno para Lobby; eventos de perfil quando necessários |
 | `SquadUp.LobbyService` | Catálogo de jogos/ranks, criação, busca, entrada/saída e conclusão concorrente de lobby | `lobby` + tabelas de outbox/inbox | HTTP interno; publica `LobbyCompletedV1` e eventos de cache |
 | `SquadUp.MatchOrchestrator` | Saga de longa duração, timeout, retry durável, compensação e estado operacional do match | `orchestration` + saga/outbox/inbox | Consome eventos; envia comandos; publica estado do match |
@@ -1754,8 +1754,8 @@ Workflow por issue:
 
 1. Humano define objetivo, contexto, constraints, out of scope e acceptance criteria.
 2. Agente lê `AGENTS.md`, ADRs e arquivos do bounded context.
-3. Antes de editar, agente informa o modelo recomendado de OpenAI, Claude e
-   Gemini, escolhe um deles com esforço explícito e justifica custo/risco.
+3. Antes de editar, agente informa o modelo recomendado de OpenAI e Gemini,
+   escolhe um deles com esforço explícito e justifica custo/risco.
 4. Agente propõe plano curto e identifica suposições/riscos.
 5. Implementa uma vertical slice pequena.
 6. Se trocar de provedor, modelo ou esforço, informa a troca e reserva uma
@@ -1771,11 +1771,11 @@ Workflow por issue:
 As sugestões abaixo são o baseline de setembro de 2026 e devem ser
 confirmadas no catálogo `/models` do OpenCode antes de cada tarefa:
 
-| Perfil | OpenAI | Claude | Gemini |
+| Perfil | OpenAI | Gemini |
 |---|---|---|---|
-| Padrão/vertical slice | GPT-5.6 Terra | Claude Sonnet 5 | Gemini 3.7 Flash |
-| Alto risco/revisão | GPT-5.6 Sol | Claude Opus 5 | Gemini 3.1 Pro Preview |
-| Mecânico/baixo custo | GPT-5.6 Luna | Claude Haiku 4.5 | Gemini 3.5 Flash-Lite |
+| Padrão/vertical slice | GPT-5.6 Terra | Gemini 3.7 Flash |
+| Alto risco/revisão | GPT-5.6 Sol | Gemini 3.1 Pro Preview |
+| Mecânico/baixo custo | GPT-5.6 Luna | Gemini 3.5 Flash-Lite |
 
 Usar o perfil padrão para CRUD, DTOs, testes e documentação. Usar o perfil de
 alto risco para concorrência, autorização, outbox/mensageria, efeitos Discord,

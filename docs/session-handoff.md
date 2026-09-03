@@ -7,8 +7,7 @@ current contents of `plan.md` remain authoritative if this document is stale.
 ## Current state
 
 - Branch: `main`; tracked files are synchronized with `origin/main` after the
-  secret-redaction milestone push. Untracked `.claude/` worktrees remain local
-  and were deliberately excluded from commits.
+  secret-redaction milestone push.
 - Context workflow milestone: `7dd7d8f docs: add context-efficient ticket
   workflow`. Broad work now uses the repository-local
   `$squad-up-to-tickets` skill, two to five vertical tickets when splitting is
@@ -65,7 +64,7 @@ current contents of `plan.md` remain authoritative if this document is stale.
 > Implemente apenas o item 8, ticket 2 de 3: eventos de auditoria estruturados
 > para mutações de Profile, preservando autorização, antiforgery e classificação
 > de dados. Eventos de Identity ficam fora deste ticket. Os gates passaram com
-> 89 testes. Preserve `.claude/` até uma decisão explícita de limpeza.
+> 89 testes.
 
 ## Milestone history
 

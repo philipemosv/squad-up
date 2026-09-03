@@ -69,7 +69,7 @@ HTTP result.
 
 - Prefer `rg`, narrow file ranges, focused diffs, and test filters while
   investigating.
-- Exclude `.claude/`, `bin/`, `obj/`, generated outputs, and unrelated user
+- Exclude agent worktrees, `bin/`, `obj/`, generated outputs, and unrelated user
   changes from searches and reviews.
 - Avoid loading whole plans, handoffs, ADR collections, or long build logs when
   a heading, range, or summarized result answers the question.

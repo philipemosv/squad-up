@@ -10,7 +10,7 @@ baseline.
   against `git status` and `git log`. Treat the repository as authoritative if
   the handoff is stale, then refresh it at the next milestone.
 - Before beginning each task, announce in the working-session commentary the
-  recommended model from each available provider (OpenAI, Claude, and Gemini),
+  recommended model from each available provider (OpenAI and Gemini),
   including the selected model/effort and the reason it fits the task. Check
   the provider's current catalog when model names or availability may have
   changed.
@@ -35,7 +35,7 @@ baseline.
   atomic request as one ticket; otherwise produce two to five vertical tickets.
 - Execute one ticket per fresh session. Read only its handoff, exact plan
   section, relevant ADR/threat-model entries, and affected files.
-- Keep tool output targeted: exclude `.claude/`, `bin/`, `obj/`, generated
+- Keep tool output targeted: exclude agent worktrees, `bin/`, `obj/`, generated
   artifacts, broad document dumps, and full diffs unless required. Summarize
   verification output after checking the actual result.
 - Run focused checks while iterating and the complete repository gates once
