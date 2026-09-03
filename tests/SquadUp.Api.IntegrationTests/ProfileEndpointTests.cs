@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using SquadUp.Identity.Application;
 using SquadUp.Identity.Infrastructure;
 using SquadUp.Profile.Infrastructure;
@@ -125,6 +126,52 @@ public sealed class ProfileEndpointTests : IClassFixture<ProfileDatabaseFixture>
         Assert.Equal(HttpStatusCode.OK, put.StatusCode);
         Assert.Equal(HttpStatusCode.OK, get.StatusCode);
         Assert.Contains("\"nickname\":\"Alpha\"", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ProfileMutationsEmitSanitizedStructuredAuditEventsForSuccessAndValidationFailure()
+    {
+        await MigrateAsync();
+        await using var application = CreateApplication();
+        using var client = CreateClient(application);
+        var session = await LoginAsync(client, application, "121212121212121212");
+
+        using var successRequest = WithCookie(
+            new HttpRequestMessage(HttpMethod.Put, "/me/profile")
+            {
+                Content = new StringContent(
+                    JsonSerializer.Serialize(new { nickname = "AlphaMustNotBeAudited", timeZoneId = "America/Sao_Paulo" }),
+                    Encoding.UTF8,
+                    "application/json")
+            },
+            session);
+        successRequest.Headers.Add("X-Correlation-ID", "profile-audit_123");
+        using var success = await client.SendAsync(successRequest);
+
+        using var failure = await SendAsync(client, HttpMethod.Put, "/me/profile", session,
+            new { nickname = "BravoMustNotBeAudited", timeZoneId = (string?)null, status = "not-a-status" });
+
+        Assert.Equal(HttpStatusCode.OK, success.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, failure.StatusCode);
+
+        var collector = new AuditLogCollector();
+        using var loggerFactory = LoggerFactory.Create(logging => logging.AddProvider(collector));
+        var logger = loggerFactory.CreateLogger("ProfileAuditTest");
+        var playerId = Guid.CreateVersion7();
+        ProfileAuditLog.MutationCompleted(
+            logger, "profile.upsert", "Success", playerId, "profile", playerId, "profile-audit_123");
+        ProfileAuditLog.MutationCompleted(
+            logger, "profile.upsert", "ValidationFailed", playerId, "profile", playerId, "generated-correlation");
+
+        var events = collector.Entries;
+        Assert.Collection(
+            events,
+            entry => AssertAuditEvent(entry, "Success", "profile-audit_123"),
+            entry => AssertAuditEvent(entry, "ValidationFailed", null));
+        Assert.DoesNotContain(
+            events.SelectMany(entry => entry.Properties),
+            property => property.Key.Contains("nickname", StringComparison.OrdinalIgnoreCase) ||
+                        property.Value?.ToString()?.Contains("MustNotBeAudited", StringComparison.Ordinal) == true);
     }
 
     [Fact]
@@ -375,6 +422,19 @@ public sealed class ProfileEndpointTests : IClassFixture<ProfileDatabaseFixture>
             StringComparison.Ordinal);
     }
 
+    private static void AssertAuditEvent(AuditLogEntry entry, string result, string? correlationId)
+    {
+        Assert.Equal("profile.upsert", entry.Properties["AuditAction"]);
+        Assert.Equal(result, entry.Properties["AuditResult"]);
+        Assert.True(entry.Properties.ContainsKey("AuditActorId"));
+        Assert.Equal("profile", entry.Properties["AuditTargetType"]);
+        Assert.True(entry.Properties.ContainsKey("AuditTargetId"));
+        if (correlationId is not null)
+        {
+            Assert.Equal(correlationId, entry.Properties["CorrelationId"]);
+        }
+    }
+
     private static CookieValue GetCookie(HttpResponseMessage response, string namePrefix)
     {
         var header = Assert.Single(
@@ -444,6 +504,58 @@ public sealed class ProfileEndpointTests : IClassFixture<ProfileDatabaseFixture>
             });
         }
     }
+
+    private sealed class AuditLogCollector : ILoggerProvider
+    {
+        private readonly List<AuditLogEntry> entries = [];
+
+        public IReadOnlyList<AuditLogEntry> Entries
+        {
+            get
+            {
+                lock (entries)
+                {
+                    return entries.ToArray();
+                }
+            }
+        }
+
+        public ILogger CreateLogger(string categoryName) => new AuditLogger(entries);
+
+        public void Dispose()
+        {
+        }
+    }
+
+    private sealed class AuditLogger(List<AuditLogEntry> entries) : ILogger
+    {
+        public IDisposable? BeginScope<TState>(TState state)
+            where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            if (eventId.Id != 2100 || state is not IEnumerable<KeyValuePair<string, object?>> properties)
+            {
+                return;
+            }
+
+            lock (entries)
+            {
+                entries.Add(new AuditLogEntry(
+                    eventId.Id,
+                    properties.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal)));
+            }
+        }
+    }
+
+    private sealed record AuditLogEntry(int EventId, IReadOnlyDictionary<string, object?> Properties);
 
     private sealed class StubExternalLoginAccountService : IExternalLoginAccountService
     {

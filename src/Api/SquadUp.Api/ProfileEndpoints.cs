@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.Logging;
 using SquadUp.Identity.Application;
 using SquadUp.Profile.Application;
 
@@ -42,7 +43,8 @@ internal static class ProfileEndpoints
         HttpContext context,
         UpdateProfileRequest request,
         IPlayerProfileService profiles,
-        IAntiforgery antiforgery)
+        IAntiforgery antiforgery,
+        ILogger<Program> logger)
     {
         var antiforgeryFailure = await ValidateAntiforgeryAsync(context, antiforgery);
         if (antiforgeryFailure is not null)
@@ -52,6 +54,7 @@ internal static class ProfileEndpoints
 
         var playerId = RequirePlayerId(context);
         var result = await profiles.UpsertAsync(playerId, request, context.RequestAborted);
+        AuditMutation(logger, context, "profile.upsert", result.Outcome.ToString(), playerId);
 
         return result.Outcome switch
         {
@@ -84,7 +87,8 @@ internal static class ProfileEndpoints
         string gameId,
         PutPlayerGameRequest request,
         IPlayerGameService games,
-        IAntiforgery antiforgery)
+        IAntiforgery antiforgery,
+        ILogger<Program> logger)
     {
         var antiforgeryFailure = await ValidateAntiforgeryAsync(context, antiforgery);
         if (antiforgeryFailure is not null)
@@ -94,6 +98,7 @@ internal static class ProfileEndpoints
 
         var playerId = RequirePlayerId(context);
         var result = await games.UpsertAsync(playerId, gameId, request, context.RequestAborted);
+        AuditMutation(logger, context, "profile.game.upsert", result.Outcome.ToString(), playerId);
 
         return result.Outcome switch
         {
@@ -118,7 +123,8 @@ internal static class ProfileEndpoints
         HttpContext context,
         string gameId,
         IPlayerGameService games,
-        IAntiforgery antiforgery)
+        IAntiforgery antiforgery,
+        ILogger<Program> logger)
     {
         var antiforgeryFailure = await ValidateAntiforgeryAsync(context, antiforgery);
         if (antiforgeryFailure is not null)
@@ -128,6 +134,7 @@ internal static class ProfileEndpoints
 
         var playerId = RequirePlayerId(context);
         var outcome = await games.RemoveAsync(playerId, gameId, context.RequestAborted);
+        AuditMutation(logger, context, "profile.game.remove", outcome.ToString(), playerId);
         return outcome switch
         {
             PlayerGameRemovalOutcome.Removed => Results.NoContent(),
@@ -174,6 +181,28 @@ internal static class ProfileEndpoints
                 title: "The antiforgery token is invalid.",
                 extensions: Code("antiforgery_validation_failed"));
         }
+    }
+
+    private static void AuditMutation(
+        ILogger logger,
+        HttpContext context,
+        string action,
+        string outcome,
+        Guid playerId)
+    {
+        if (!logger.IsEnabled(LogLevel.Information))
+        {
+            return;
+        }
+
+        ProfileAuditLog.MutationCompleted(
+            logger,
+            action,
+            outcome,
+            playerId,
+            "profile",
+            playerId,
+            context.TraceIdentifier);
     }
 
     private static Dictionary<string, object?> Code(string code, string? detail = null)
