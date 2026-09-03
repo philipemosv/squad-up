@@ -7,14 +7,13 @@ current contents of `plan.md` remain authoritative if this document is stale.
 ## Current state
 
 - Branch: `main`; tracked files are synchronized with `origin/main` after the
-  Discord OAuth CI-contract milestone push.
+  Lobby Domain aggregate milestone push.
 - Context workflow milestone: `7dd7d8f docs: add context-efficient ticket
   workflow`. Broad work now uses the repository-local
   `$squad-up-to-tickets` skill, two to five vertical tickets when splitting is
   justified, and one fresh session per ticket. The durable guide is
   [task-slicing.md](development/task-slicing.md).
-- Last functional milestone: `83f8bfe test: verify Discord OAuth token exchange
-  contract`.
+- Last functional milestone: `2674296 feat: model lobby domain aggregate`.
 - Completed plan item: Fase 2, item 7 — Profile CRUD, player games/ranks, and
   the initial Dota 2 catalog. Profile owns the new `profile` PostgreSQL schema
   provisionally under [ADR-005](adr/ADR-005-profile-owned-catalog-seed.md).
@@ -81,16 +80,28 @@ current contents of `plan.md` remain authoritative if this document is stale.
 - Verification: the focused Discord OAuth suite passed 12 tests. Locked
   restore, formatter verification, Release CI build with zero warnings, and
   the complete suite passed — 92 tests, including 76 API integration tests.
-- Next task: Fase 3, item 1 — model the Lobby aggregate, value objects, and
-  state transitions as a bounded Domain slice.
+- Completed plan item: Fase 3, item 1 — Lobby aggregate, value objects, and
+  state transitions as a bounded Domain slice. `Lobby` enforces capacity,
+  unique membership, Recruiting-only joins, ordinal catalog rank requirements,
+  explicit lifecycle transitions, and a single local `LobbyCompleted` fact on
+  the transition to `Full`.
+- Data and security: participant snapshots contain only the Confidential local
+  player ID, Discord ID, and display name needed for later provisioning. They
+  have no persistence, HTTP, logging, caching, or integration-contract path in
+  this slice. TM-15 now records that minimization requirement.
+- Verification: 11 focused Lobby Domain tests passed. Locked restore, formatter
+  verification, Release CI build with zero warnings, and the complete suite
+  passed — 103 tests, including 76 API integration tests.
+- Next task: Fase 3, item 2 — add Lobby-owned EF mappings, database constraints,
+  and a PostgreSQL concurrency token without changing the Domain rules.
 
 ## Next-session prompt
 
-> Inicie uma sessão nova para a Fase 3 após o milestone `83f8bfe` do contrato
-> de CI de Discord OAuth. Confirme este handoff contra o Git e use
-> `$squad-up-to-tickets` para o item 1: modelar o agregado Lobby, value objects
-> e transições de estado somente no Domain. Os gates passaram com 92 testes
-> (76 de API).
+> Inicie uma sessão nova para a Fase 3 após o milestone `2674296` do agregado
+> Lobby Domain. Confirme este handoff contra o Git e use
+> `$squad-up-to-tickets` para o item 2: criar os mapeamentos EF do Lobby, as
+> constraints e o token de concorrência PostgreSQL, sem alterar as regras de
+> Domain. Os gates passaram com 103 testes (76 de API).
 
 ## Milestone history
 
@@ -109,3 +120,4 @@ current contents of `plan.md` remain authoritative if this document is stale.
 | `aed5f8e` | Fase 2 item 8, ticket 2: structured audit events for Profile mutations | Repository gates and 90 tests passed; success, validation-failure, correlation, and field-exclusion coverage added |
 | `fcbbf6c` | Fase 2 item 8, ticket 3: structured audit events for Identity security actions | Repository gates and 92 tests passed; anonymous/antiforgery negatives and Restricted-field exclusion coverage added |
 | `83f8bfe` | Fase 2, item 9: Discord OAuth in-memory HTTP double verifies the authenticated authorization-code token request | Repository gates and 92 tests passed; 12 focused OAuth tests passed |
+| `2674296` | Fase 3, item 1: Lobby aggregate, rank value objects, participant snapshots, and explicit state transitions | Repository gates and 103 tests passed; 11 focused Domain tests passed |
