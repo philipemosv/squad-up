@@ -314,23 +314,6 @@
           "SquadUp.Identity.Application": "[1.0.0, )"
         }
       },
-      "squadup.profile.application": {
-        "type": "Project",
-        "dependencies": {
-          "SquadUp.Profile.Domain": "[1.0.0, )"
-        }
-      },
-      "squadup.profile.domain": {
-        "type": "Project"
-      },
-      "squadup.profile.infrastructure": {
-        "type": "Project",
-        "dependencies": {
-          "Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore": "[10.0.11, )",
-          "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.3, )",
-          "SquadUp.Profile.Application": "[1.0.0, )"
-        }
-      },
       "squadup.servicedefaults": {
         "type": "Project",
         "dependencies": {

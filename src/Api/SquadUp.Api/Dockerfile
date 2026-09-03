@@ -9,9 +9,6 @@ COPY --link src/BuildingBlocks/SquadUp.ServiceDefaults/SquadUp.ServiceDefaults.c
 COPY --link src/Api/SquadUp.Identity.Domain/SquadUp.Identity.Domain.csproj src/Api/SquadUp.Identity.Domain/packages.lock.json ./src/Api/SquadUp.Identity.Domain/
 COPY --link src/Api/SquadUp.Identity.Application/SquadUp.Identity.Application.csproj src/Api/SquadUp.Identity.Application/packages.lock.json ./src/Api/SquadUp.Identity.Application/
 COPY --link src/Api/SquadUp.Identity.Infrastructure/SquadUp.Identity.Infrastructure.csproj src/Api/SquadUp.Identity.Infrastructure/packages.lock.json ./src/Api/SquadUp.Identity.Infrastructure/
-COPY --link src/Api/SquadUp.Profile.Domain/SquadUp.Profile.Domain.csproj src/Api/SquadUp.Profile.Domain/packages.lock.json ./src/Api/SquadUp.Profile.Domain/
-COPY --link src/Api/SquadUp.Profile.Application/SquadUp.Profile.Application.csproj src/Api/SquadUp.Profile.Application/packages.lock.json ./src/Api/SquadUp.Profile.Application/
-COPY --link src/Api/SquadUp.Profile.Infrastructure/SquadUp.Profile.Infrastructure.csproj src/Api/SquadUp.Profile.Infrastructure/packages.lock.json ./src/Api/SquadUp.Profile.Infrastructure/
 COPY --link src/Api/SquadUp.Api/SquadUp.Api.csproj src/Api/SquadUp.Api/packages.lock.json ./src/Api/SquadUp.Api/
 
 RUN dotnet restore src/Api/SquadUp.Api/SquadUp.Api.csproj \

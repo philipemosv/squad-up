@@ -75,30 +75,8 @@ public sealed class LobbyLayerDependencyTests
                 [
                     "SquadUp.Identity.Application",
                     "SquadUp.Identity.Infrastructure",
-                    "SquadUp.Profile.Application",
-                    "SquadUp.Profile.Infrastructure",
                     "SquadUp.ServiceDefaults"
                 ])
-        };
-
-        AssertDependencies(repositoryRoot, rules);
-    }
-
-    [Fact]
-    public void ProfileProjectsMustHaveOnlyTheAllowedDirectDependencies()
-    {
-        var repositoryRoot = FindRepositoryRoot();
-        var rules = new[]
-        {
-            new DependencyRule(
-                "src/Api/SquadUp.Profile.Domain/SquadUp.Profile.Domain.csproj",
-                []),
-            new DependencyRule(
-                "src/Api/SquadUp.Profile.Application/SquadUp.Profile.Application.csproj",
-                ["SquadUp.Profile.Domain"]),
-            new DependencyRule(
-                "src/Api/SquadUp.Profile.Infrastructure/SquadUp.Profile.Infrastructure.csproj",
-                ["SquadUp.Profile.Application"])
         };
 
         AssertDependencies(repositoryRoot, rules);

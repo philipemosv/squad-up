@@ -755,8 +755,6 @@
         "dependencies": {
           "SquadUp.Identity.Application": "[1.0.0, )",
           "SquadUp.Identity.Infrastructure": "[1.0.0, )",
-          "SquadUp.Profile.Application": "[1.0.0, )",
-          "SquadUp.Profile.Infrastructure": "[1.0.0, )",
           "SquadUp.ServiceDefaults": "[1.0.0, )"
         }
       },
@@ -793,23 +791,6 @@
         "dependencies": {
           "Microsoft.AspNetCore.Authentication.JwtBearer": "[10.0.11, )",
           "SquadUp.LobbyService.Application": "[1.0.0, )"
-        }
-      },
-      "squadup.profile.application": {
-        "type": "Project",
-        "dependencies": {
-          "SquadUp.Profile.Domain": "[1.0.0, )"
-        }
-      },
-      "squadup.profile.domain": {
-        "type": "Project"
-      },
-      "squadup.profile.infrastructure": {
-        "type": "Project",
-        "dependencies": {
-          "Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore": "[10.0.11, )",
-          "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.3, )",
-          "SquadUp.Profile.Application": "[1.0.0, )"
         }
       },
       "squadup.servicedefaults": {

@@ -15,8 +15,6 @@
     <ProjectReference Include="..\..\BuildingBlocks\SquadUp.ServiceDefaults\SquadUp.ServiceDefaults.csproj" />
     <ProjectReference Include="..\SquadUp.Identity.Application\SquadUp.Identity.Application.csproj" />
     <ProjectReference Include="..\SquadUp.Identity.Infrastructure\SquadUp.Identity.Infrastructure.csproj" />
-    <ProjectReference Include="..\SquadUp.Profile.Application\SquadUp.Profile.Application.csproj" />
-    <ProjectReference Include="..\SquadUp.Profile.Infrastructure\SquadUp.Profile.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

@@ -21,7 +21,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Api\SquadUp.Api\SquadUp.Api.csproj" />
     <ProjectReference Include="..\..\src\Api\SquadUp.Identity.Infrastructure\SquadUp.Identity.Infrastructure.csproj" />
-    <ProjectReference Include="..\..\src\Api\SquadUp.Profile.Infrastructure\SquadUp.Profile.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Lobby\SquadUp.LobbyService.Infrastructure\SquadUp.LobbyService.Infrastructure.csproj" />
   </ItemGroup>
 

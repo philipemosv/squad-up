@@ -9,9 +9,6 @@
     <Project Path="src/Api/SquadUp.Identity.Application/SquadUp.Identity.Application.csproj" />
     <Project Path="src/Api/SquadUp.Identity.Domain/SquadUp.Identity.Domain.csproj" />
     <Project Path="src/Api/SquadUp.Identity.Infrastructure/SquadUp.Identity.Infrastructure.csproj" />
-    <Project Path="src/Api/SquadUp.Profile.Application/SquadUp.Profile.Application.csproj" />
-    <Project Path="src/Api/SquadUp.Profile.Domain/SquadUp.Profile.Domain.csproj" />
-    <Project Path="src/Api/SquadUp.Profile.Infrastructure/SquadUp.Profile.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/src/Lobby/">
     <Project Path="src/Lobby/SquadUp.LobbyService.Api/SquadUp.LobbyService.Api.csproj" />

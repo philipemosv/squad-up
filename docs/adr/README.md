@@ -22,4 +22,3 @@ ADR, link both records, and mark the previous one as superseded.
 | [ADR-002](ADR-002-process-boundaries-and-dependency-direction.md) | Process boundaries and dependency direction | Accepted |
 | [ADR-003](ADR-003-authentication-and-token-boundaries.md) | Authentication and token boundaries | Accepted |
 | [ADR-004](ADR-004-aws-deployment-profiles.md) | AWS deployment profiles and initial region | Accepted |
-| [ADR-005](ADR-005-profile-owned-catalog-seed.md) | Profile-owned initial game and rank catalog | Accepted |

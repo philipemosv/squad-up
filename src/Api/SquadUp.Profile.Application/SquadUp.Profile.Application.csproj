@@ -1,7 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-
-  <ItemGroup>
-    <ProjectReference Include="..\SquadUp.Profile.Domain\SquadUp.Profile.Domain.csproj" />
-  </ItemGroup>
-
-</Project>

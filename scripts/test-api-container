@@ -36,7 +36,6 @@ docker run \
   --publish 127.0.0.1::8080 \
   --security-opt no-new-privileges:true \
   --env 'ConnectionStrings__IdentityDatabase=Host=127.0.0.1;Port=1;Database=unavailable;Timeout=1' \
-  --env 'ConnectionStrings__ProfileDatabase=Host=127.0.0.1;Port=1;Database=unavailable;Timeout=1' \
   --env 'Discord__ClientId=123456789012345678' \
   --env "Discord__ClientSecret=${discord_client_secret}" \
   --env 'InternalTokens__ActiveKeyId=smoke-current' \
