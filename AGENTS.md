@@ -9,6 +9,15 @@ baseline.
 - Read `docs/session-handoff.md` first and verify its recorded branch and commit
   against `git status` and `git log`. Treat the repository as authoritative if
   the handoff is stale, then refresh it at the next milestone.
+- Before beginning each task, announce in the working-session commentary the
+  recommended model from each available provider (OpenAI, Claude, and Gemini),
+  including the selected model/effort and the reason it fits the task. Check
+  the provider's current catalog when model names or availability may have
+  changed.
+- If the implementation changes provider, model, or reasoning effort during a
+  task, announce the change and perform a final, read-only diff review with a
+  different provider/model when available. Report the reviewer, findings,
+  unresolved risks, and verification results before handoff.
 - Read the relevant ADRs in `docs/adr/`, the initial threat model in
   `docs/threat-model/`, and the affected section of `plan.md`.
 - State the business invariant, trust boundary, failure paths, and assumptions

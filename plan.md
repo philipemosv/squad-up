@@ -1754,12 +1754,35 @@ Workflow por issue:
 
 1. Humano define objetivo, contexto, constraints, out of scope e acceptance criteria.
 2. Agente lê `AGENTS.md`, ADRs e arquivos do bounded context.
-3. Agente propõe plano curto e identifica suposições/riscos.
-4. Implementa uma vertical slice pequena.
-5. Executa testes focados e depois gates proporcionais.
-6. Revisa o próprio diff para segurança, concorrência, idempotência e telemetria.
-7. Humano revisa comportamento e decisões; CI valida.
-8. Erro recorrente vira regra, skill, teste ou analyzer — não apenas outro prompt.
+3. Antes de editar, agente informa o modelo recomendado de OpenAI, Claude e
+   Gemini, escolhe um deles com esforço explícito e justifica custo/risco.
+4. Agente propõe plano curto e identifica suposições/riscos.
+5. Implementa uma vertical slice pequena.
+6. Se trocar de provedor, modelo ou esforço, informa a troca e reserva uma
+   revisão final independente com outro modelo/provedor.
+7. Executa testes focados e depois gates proporcionais.
+8. Revisa o próprio diff para segurança, concorrência, idempotência e telemetria;
+   quando houve troca de modelo, registra também a revisão independente.
+9. Humano revisa comportamento e decisões; CI valida.
+10. Erro recorrente vira regra, skill, teste ou analyzer — não apenas outro prompt.
+
+### 17.1.1 Roteamento de modelos
+
+As sugestões abaixo são o baseline de setembro de 2026 e devem ser
+confirmadas no catálogo `/models` do OpenCode antes de cada tarefa:
+
+| Perfil | OpenAI | Claude | Gemini |
+|---|---|---|---|
+| Padrão/vertical slice | GPT-5.6 Terra | Claude Sonnet 5 | Gemini 3.7 Flash |
+| Alto risco/revisão | GPT-5.6 Sol | Claude Opus 5 | Gemini 3.1 Pro Preview |
+| Mecânico/baixo custo | GPT-5.6 Luna | Claude Haiku 4.5 | Gemini 3.5 Flash-Lite |
+
+Usar o perfil padrão para CRUD, DTOs, testes e documentação. Usar o perfil de
+alto risco para concorrência, autorização, outbox/mensageria, efeitos Discord,
+migrations expand-contract, Terraform e revisão de segurança. O modelo barato
+não deve ser o único responsável por decisões nesses temas. Se a troca de
+modelo ocorrer no meio da tarefa, a revisão final deve privilegiar um provedor
+independente e ser limitada ao diff, testes e riscos da mudança.
 
 ### 17.2 `AGENTS.md` compartilhado
 
