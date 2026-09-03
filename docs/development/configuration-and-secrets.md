@@ -63,9 +63,29 @@ The application validates the connection string shape at startup without
 opening the database or echoing the value. Schema migration remains a separate,
 explicit operation with a distinct deployment identity.
 
+The API also requires the Discord OAuth application credentials
+`Discord:ClientId` and `Discord:ClientSecret`. Register the exact callback URI
+`https://<api-host>/auth/discord/callback` in the Discord application, then set
+the local values without placing them in tracked configuration:
+
+```bash
+dotnet user-secrets set "Discord:ClientId" "<discord-application-id>" \
+  --project src/Api/SquadUp.Api
+dotnet user-secrets set "Discord:ClientSecret" "<local-secret>" \
+  --project src/Api/SquadUp.Api
+```
+
+The adapter fixes the Discord authorization, token, and user-information URLs
+in code and requests only the `identify` scope. It never stores the Discord
+access token in an authentication cookie. The five-minute external cookie is
+Secure, HttpOnly, SameSite=Lax, and is deleted as soon as the transport-level
+callback completes. Local account creation and linking are intentionally left
+to the next Identity slice.
+
 The API image remains chiseled and non-root. Its container-only liveness smoke
-uses a deliberately unreachable, credential-free connection string to prove
-that normal startup neither contacts the database nor applies migrations:
+uses a deliberately unreachable, credential-free connection string and a
+runtime-generated synthetic OAuth secret to prove that normal startup neither
+contacts the database, Discord, nor applies migrations:
 
 ```bash
 ./scripts/test-api-container

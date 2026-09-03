@@ -3,6 +3,7 @@ set -euo pipefail
 
 readonly image_name="squad-up/api:local"
 readonly container_name="squad-up-api-smoke-${RANDOM}"
+readonly discord_client_secret="$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')"
 
 cleanup() {
   docker rm --force "${container_name}" >/dev/null 2>&1 || true
@@ -29,6 +30,8 @@ docker run \
   --publish 127.0.0.1::8080 \
   --security-opt no-new-privileges:true \
   --env 'ConnectionStrings__IdentityDatabase=Host=127.0.0.1;Port=1;Database=unavailable;Timeout=1' \
+  --env 'Discord__ClientId=123456789012345678' \
+  --env "Discord__ClientSecret=${discord_client_secret}" \
   "${image_name}" >/dev/null
 
 published_address="$(docker port "${container_name}" 8080/tcp)"
