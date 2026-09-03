@@ -6,6 +6,9 @@ baseline.
 
 ## Before editing
 
+- Read `docs/session-handoff.md` first and verify its recorded branch and commit
+  against `git status` and `git log`. Treat the repository as authoritative if
+  the handoff is stale, then refresh it at the next milestone.
 - Read the relevant ADRs in `docs/adr/`, the initial threat model in
   `docs/threat-model/`, and the affected section of `plan.md`.
 - State the business invariant, trust boundary, failure paths, and assumptions
@@ -94,6 +97,14 @@ baseline.
 
 - Treat a validated, committed, and pushed milestone as a natural session
   boundary.
+- After each milestone push, update `docs/session-handoff.md` with the completed
+  outcome, pushed commit, verification results, assumptions or limitations, and
+  the next exact plan item. Commit and push that handoff update separately.
+- A handoff-only commit does not trigger another handoff update; this exception
+  prevents an infinite sequence of documentation commits.
+- Keep the current-state section concise and append one compact row to the
+  milestone history. Never place secrets, tokens, cookies, invite codes,
+  connection strings, or real user/provider identifiers in the handoff.
 - At each milestone, remind the user that starting a fresh Codex session can
   reduce context usage.
 - Before suggesting a fresh session, provide a concise handoff prompt containing
