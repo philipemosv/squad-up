@@ -12,6 +12,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SquadUp.Identity.Application;
 using SquadUp.Identity.Infrastructure;
@@ -168,6 +169,53 @@ public sealed class DiscordOAuthTests
             loggedOut.Headers.GetValues("Set-Cookie"),
             value => value.StartsWith(BrowserSessionExtensions.SessionCookieName + "=", StringComparison.Ordinal) &&
                 value.Contains("expires=Thu, 01 Jan 1970", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task UnauthenticatedLogoutIsRejectedWithoutAnIdentityAuditEvent()
+    {
+        using var backchannel = new DiscordBackchannelHandler();
+        await using var application = new DiscordApplication(backchannel);
+        using var client = CreateClient(application);
+
+        using var response = await client.PostAsync("/auth/logout", content: null);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public void IdentityAuditEventsUseOnlyAllowlistedProperties()
+    {
+        var collector = new AuditLogCollector();
+        using var loggerFactory = LoggerFactory.Create(logging => logging.AddProvider(collector));
+        var actorId = Guid.CreateVersion7();
+        var sessionCookie = "synthetic-session-cookie";
+        var requestToken = "synthetic-antiforgery-token";
+        var clientSecret = "synthetic-client-secret";
+        var logger = loggerFactory.CreateLogger("IdentityAuditTest");
+
+        SquadUp.Api.IdentityAuditLog.ActionCompleted(
+            logger,
+            "identity.session.logout",
+            "Success",
+            actorId,
+            "identity.account",
+            actorId,
+            "identity-audit_123");
+
+        var audit = Assert.Single(collector.Entries);
+        Assert.Equal("identity.session.logout", audit.Properties["AuditAction"]);
+        Assert.Equal("Success", audit.Properties["AuditResult"]);
+        Assert.Equal("identity.account", audit.Properties["AuditTargetType"]);
+        Assert.DoesNotContain(
+            audit.Properties,
+            property => property.Key.Contains("cookie", StringComparison.OrdinalIgnoreCase) ||
+                        property.Key.Contains("token", StringComparison.OrdinalIgnoreCase) ||
+                        property.Key.Contains("secret", StringComparison.OrdinalIgnoreCase) ||
+                        property.Value?.ToString()?.Contains(sessionCookie, StringComparison.Ordinal) == true ||
+                        property.Value?.ToString()?.Contains(requestToken, StringComparison.Ordinal) == true ||
+                        property.Value?.ToString()?.Contains(clientSecret, StringComparison.Ordinal) == true ||
+                        property.Value?.ToString()?.Contains(AuthorizationCode, StringComparison.Ordinal) == true);
     }
 
     [Fact]
@@ -454,6 +502,58 @@ public sealed class DiscordOAuthTests
             string providerKey,
             CancellationToken cancellationToken) => throw new NotSupportedException();
     }
+
+    private sealed class AuditLogCollector : ILoggerProvider
+    {
+        private readonly List<AuditLogEntry> entries = [];
+
+        public IReadOnlyList<AuditLogEntry> Entries
+        {
+            get
+            {
+                lock (entries)
+                {
+                    return entries.ToArray();
+                }
+            }
+        }
+
+        public ILogger CreateLogger(string categoryName) => new AuditLogger(entries);
+
+        public void Dispose()
+        {
+        }
+
+    }
+
+    private sealed class AuditLogger(List<AuditLogEntry> entries) : ILogger
+    {
+        public IDisposable? BeginScope<TState>(TState state)
+            where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            if (eventId.Id != 2200 || state is not IEnumerable<KeyValuePair<string, object?>> properties)
+            {
+                return;
+            }
+
+            lock (entries)
+            {
+                entries.Add(new AuditLogEntry(
+                    properties.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal)));
+            }
+        }
+    }
+
+    private sealed record AuditLogEntry(IReadOnlyDictionary<string, object?> Properties);
 
     private sealed class StubUserSessionClaimsProvider(Guid userId) : IUserSessionClaimsProvider
     {

@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.Logging;
 using SquadUp.Identity.Application;
 using SquadUp.Identity.Infrastructure;
 
@@ -43,7 +44,8 @@ internal static class DiscordAuthenticationEndpoints
     private static async Task<IResult> CompleteAuthenticationAsync(
         HttpContext context,
         IExternalLoginAccountService externalLogins,
-        IUserSessionClaimsProvider sessionClaimsProvider)
+        IUserSessionClaimsProvider sessionClaimsProvider,
+        ILogger<Program> logger)
     {
         var authentication = await context.AuthenticateAsync(
             DiscordOAuthExtensions.ExternalCookieScheme);
@@ -116,6 +118,12 @@ internal static class DiscordAuthenticationEndpoints
                     IssuedUtc = now,
                     ExpiresUtc = now.Add(BrowserSessionExtensions.SessionLifetime)
                 });
+            AuditIdentityAction(
+                logger,
+                context,
+                "identity.discord.sign_in",
+                localAccount.WasCreated ? "Created" : "Existing",
+                localAccount.UserId);
             return Results.NoContent();
         }
         finally
@@ -126,7 +134,8 @@ internal static class DiscordAuthenticationEndpoints
 
     private static async Task<IResult> LogoutAsync(
         HttpContext context,
-        IAntiforgery antiforgery)
+        IAntiforgery antiforgery,
+        ILogger<Program> logger)
     {
         try
         {
@@ -143,8 +152,40 @@ internal static class DiscordAuthenticationEndpoints
                 });
         }
 
+        var playerId = RequirePlayerId(context);
         await context.SignOutAsync(BrowserSessionExtensions.AuthenticationScheme);
+        AuditIdentityAction(logger, context, "identity.session.logout", "Success", playerId);
         return Results.NoContent();
+    }
+
+    private static Guid RequirePlayerId(HttpContext context)
+    {
+        var subject = context.User.FindFirstValue(SquadUpClaimTypes.Subject);
+        return Guid.TryParse(subject, out var playerId) && playerId != Guid.Empty
+            ? playerId
+            : throw new InvalidOperationException("Authenticated request is missing a valid subject claim.");
+    }
+
+    private static void AuditIdentityAction(
+        ILogger logger,
+        HttpContext context,
+        string action,
+        string result,
+        Guid playerId)
+    {
+        if (!logger.IsEnabled(LogLevel.Information))
+        {
+            return;
+        }
+
+        IdentityAuditLog.ActionCompleted(
+            logger,
+            action,
+            result,
+            playerId,
+            "identity.account",
+            playerId,
+            context.TraceIdentifier);
     }
 
     private sealed record AntiforgeryResponse(string RequestToken);
