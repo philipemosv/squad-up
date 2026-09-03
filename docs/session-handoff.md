@@ -7,7 +7,7 @@ current contents of `plan.md` remain authoritative if this document is stale.
 ## Current state
 
 - Branch: `main`; tracked files are synchronized with `origin/main` after the
-  secret-redaction milestone push.
+  Profile audit milestone push.
 - Context workflow milestone: `7dd7d8f docs: add context-efficient ticket
   workflow`. Broad work now uses the repository-local
   `$squad-up-to-tickets` skill, two to five vertical tickets when splitting is
@@ -52,19 +52,31 @@ current contents of `plan.md` remain authoritative if this document is stale.
   connection string, OAuth code/state, and exception failure paths.
 - Verification: locked restore, formatter verification, Release CI build, and
   the complete suite passed — 89 tests, including 73 API integration tests.
-- Next task: Fase 2, item 8, ticket 2 of 3 — add structured audit events for
-  Profile mutations while preserving Profile authorization, antiforgery, and
-  data-classification boundaries. Privileged Identity audit events remain out
-  of scope for that ticket.
+- Completed plan item: Fase 2, item 8, ticket 2 of 3 — structured audit events
+  for Profile mutations. Profile update, game upsert, and game removal now emit
+  event 2100 with action, result, actor, target type/ID, and correlation ID.
+  The event carries no request body, nickname, timezone, rank, region, cookie,
+  or credential. It is emitted only after authorization and antiforgery pass;
+  it records success and expected mutation failures.
+- Verification: the Profile endpoint suite passed 10 tests, including audit
+  success/validation-failure and field-exclusion coverage. Locked restore,
+  formatter verification, Release CI build, and the complete suite passed — 90
+  tests, including 74 API integration tests.
+- Limitation: audit events currently use the centralized structured-log sink;
+  append-only audit storage, retention, and access controls are not implemented.
+- Next task: Fase 2, item 8, ticket 3 of 3 — add structured audit events for
+  privileged Identity actions, including authorization-negative coverage and
+  proof that Restricted values cannot enter those events. Do not expand Profile
+  audit storage in that ticket.
 
 ## Next-session prompt
 
-> Continue a Fase 2 do Squad-Up após o milestone `2af2551` de redação central
-> de segredos. Confirme este handoff contra o Git e use `$squad-up-to-tickets`.
-> Implemente apenas o item 8, ticket 2 de 3: eventos de auditoria estruturados
-> para mutações de Profile, preservando autorização, antiforgery e classificação
-> de dados. Eventos de Identity ficam fora deste ticket. Os gates passaram com
-> 89 testes.
+> Continue a Fase 2 do Squad-Up após o milestone `aed5f8e` de auditoria de
+> mutações de Profile. Confirme este handoff contra o Git e use
+> `$squad-up-to-tickets`. Implemente apenas o item 8, ticket 3 de 3: eventos
+> de auditoria estruturados para ações privilegiadas de Identity, com negativas
+> de autorização e prova de que valores Restricted não entram nos eventos. Os
+> gates passaram com 90 testes.
 
 ## Milestone history
 
@@ -80,3 +92,4 @@ current contents of `plan.md` remain authoritative if this document is stale.
 | `93fa531` | Fase 2 item 7: protected Profile slice with profile/game/rank CRUD and provisional Dota 2 catalog ownership | 88 tests, hermetic Discord regression test, antiforgery/ownership negatives, migration replay/model check, and non-root API container smoke passed |
 | `7dd7d8f` | Repository-local `to-tickets` adaptation and durable context-efficient task workflow | Skill validation, diff checks, and all repository gates with 88 tests passed |
 | `2af2551` | Fase 2 item 8, ticket 1: centralized structured-log secret redaction | Repository gates and 89 tests passed; canary and failure-path proof added |
+| `aed5f8e` | Fase 2 item 8, ticket 2: structured audit events for Profile mutations | Repository gates and 90 tests passed; success, validation-failure, correlation, and field-exclusion coverage added |
