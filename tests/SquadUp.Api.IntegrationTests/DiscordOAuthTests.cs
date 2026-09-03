@@ -1,6 +1,8 @@
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OAuth;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -55,7 +57,7 @@ public sealed class DiscordOAuthTests
     }
 
     [Fact]
-    public async Task ValidCallbackUpsertsExternalLoginWithoutPersistingOrReturningTokens()
+    public async Task ValidCallbackUpsertsExternalLoginAndIssuesBoundedBrowserSession()
     {
         using var backchannel = new DiscordBackchannelHandler();
         await using var application = new DiscordApplication(backchannel);
@@ -91,6 +93,14 @@ public sealed class DiscordOAuthTests
 
         Assert.Equal(HttpStatusCode.NoContent, completion.StatusCode);
         Assert.Empty(completionBody);
+        var sessionCookie = GetCookie(completion, BrowserSessionExtensions.SessionCookieName);
+        Assert.Contains("; secure", sessionCookie.Header, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("; httponly", sessionCookie.Header, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("; samesite=lax", sessionCookie.Header, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("; path=/", sessionCookie.Header, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("domain=", sessionCookie.Header, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(backchannel.AccessToken, sessionCookie.Header, StringComparison.Ordinal);
+        Assert.DoesNotContain(DiscordUserId, sessionCookie.Header, StringComparison.Ordinal);
         Assert.Contains(
             completion.Headers.GetValues("Set-Cookie"),
             value => value.StartsWith("__Host-SquadUp.External=", StringComparison.Ordinal) &&
@@ -102,6 +112,65 @@ public sealed class DiscordOAuthTests
         Assert.Equal(1, application.ExternalLogins.UpsertCount);
         Assert.Equal(DiscordOAuthDefaults.AuthenticationScheme, application.ExternalLogins.LoginProvider);
         Assert.Equal(DiscordUserId, application.ExternalLogins.ProviderKey);
+
+        var cookieOptions = application.Services
+            .GetRequiredService<IOptionsMonitor<CookieAuthenticationOptions>>()
+            .Get(BrowserSessionExtensions.AuthenticationScheme);
+        Assert.Equal(TimeSpan.FromMinutes(30), cookieOptions.ExpireTimeSpan);
+        Assert.False(cookieOptions.SlidingExpiration);
+    }
+
+    [Fact]
+    public async Task CookieAuthenticatedLogoutRequiresAntiforgeryAndDeletesSession()
+    {
+        using var backchannel = new DiscordBackchannelHandler();
+        await using var application = new DiscordApplication(backchannel);
+        using var client = CreateClient(application);
+        var session = await CompleteLoginAsync(client);
+
+        using var missingAntiforgery = new HttpRequestMessage(HttpMethod.Post, "/auth/logout");
+        missingAntiforgery.Headers.Add("Cookie", session.Pair);
+        using var rejected = await client.SendAsync(missingAntiforgery);
+        Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
+
+        using var antiforgeryRequest = new HttpRequestMessage(HttpMethod.Get, "/auth/antiforgery");
+        antiforgeryRequest.Headers.Add("Cookie", session.Pair);
+        using var antiforgeryResponse = await client.SendAsync(antiforgeryRequest);
+        using var document = JsonDocument.Parse(await antiforgeryResponse.Content.ReadAsStringAsync());
+        var requestToken = document.RootElement.GetProperty("requestToken").GetString();
+        var antiforgeryCookie = GetCookie(
+            antiforgeryResponse,
+            BrowserSessionExtensions.AntiforgeryCookieName);
+
+        Assert.Equal(HttpStatusCode.OK, antiforgeryResponse.StatusCode);
+        Assert.False(string.IsNullOrWhiteSpace(requestToken));
+        Assert.Contains("; secure", antiforgeryCookie.Header, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("; httponly", antiforgeryCookie.Header, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("; samesite=strict", antiforgeryCookie.Header, StringComparison.OrdinalIgnoreCase);
+
+        using var logout = new HttpRequestMessage(HttpMethod.Post, "/auth/logout");
+        logout.Headers.Add("Cookie", $"{session.Pair}; {antiforgeryCookie.Pair}");
+        logout.Headers.Add(BrowserSessionExtensions.AntiforgeryHeaderName, requestToken);
+        using var loggedOut = await client.SendAsync(logout);
+
+        Assert.Equal(HttpStatusCode.NoContent, loggedOut.StatusCode);
+        Assert.Contains(
+            loggedOut.Headers.GetValues("Set-Cookie"),
+            value => value.StartsWith(BrowserSessionExtensions.SessionCookieName + "=", StringComparison.Ordinal) &&
+                value.Contains("expires=Thu, 01 Jan 1970", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task UnauthenticatedBffEndpointReturnsUnauthorizedWithoutLoginRedirect()
+    {
+        using var backchannel = new DiscordBackchannelHandler();
+        await using var application = new DiscordApplication(backchannel);
+        using var client = CreateClient(application);
+
+        using var response = await client.GetAsync("/auth/antiforgery");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Null(response.Headers.Location);
     }
 
     [Theory]
@@ -254,6 +323,28 @@ public sealed class DiscordOAuthTests
             HandleCookies = false
         });
 
+    private static async Task<CookieValue> CompleteLoginAsync(HttpClient client)
+    {
+        using var login = await client.GetAsync("/auth/discord/login");
+        var location = Assert.IsType<Uri>(login.Headers.Location);
+        var state = Assert.Single(QueryHelpers.ParseQuery(location.Query)["state"]);
+        var correlation = GetCookie(login, "__Host-SquadUp.Correlation.");
+        using var callbackRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/auth/discord/callback?code={Uri.EscapeDataString(AuthorizationCode)}&state={Uri.EscapeDataString(state!)}");
+        callbackRequest.Headers.Add("Cookie", correlation.Pair);
+        using var callback = await client.SendAsync(callbackRequest);
+        var externalCookie = GetCookie(callback, "__Host-SquadUp.External");
+        using var completionRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            DiscordOAuthDefaults.CompletionPath);
+        completionRequest.Headers.Add("Cookie", externalCookie.Pair);
+        using var completion = await client.SendAsync(completionRequest);
+
+        Assert.Equal(HttpStatusCode.NoContent, completion.StatusCode);
+        return GetCookie(completion, BrowserSessionExtensions.SessionCookieName);
+    }
+
     private static CookieValue GetCookie(HttpResponseMessage response, string namePrefix)
     {
         var header = Assert.Single(
@@ -275,10 +366,14 @@ public sealed class DiscordOAuthTests
         {
             this.backchannel = backchannel;
             ClientSecret = RandomNumberGenerator.GetHexString(32);
+            using var rsa = RSA.Create(2048);
+            PrivateKeyPem = rsa.ExportRSAPrivateKeyPem();
             ExternalLogins = new RecordingExternalLoginAccountService();
         }
 
         public string ClientSecret { get; }
+
+        public string PrivateKeyPem { get; }
 
         public RecordingExternalLoginAccountService ExternalLogins { get; }
 
@@ -290,7 +385,15 @@ public sealed class DiscordOAuthTests
                     ["ConnectionStrings:IdentityDatabase"] =
                         "Host=127.0.0.1;Port=1;Database=unavailable;Timeout=1",
                     ["Discord:ClientId"] = ClientId,
-                    ["Discord:ClientSecret"] = ClientSecret
+                    ["Discord:ClientSecret"] = ClientSecret,
+                    ["InternalTokens:Issuer"] = "https://api.squad-up.test",
+                    ["InternalTokens:LobbyAudience"] = "squad-up-lobby",
+                    ["InternalTokens:ClientId"] = "squad-up-api",
+                    ["InternalTokens:LifetimeSeconds"] = "120",
+                    ["InternalTokens:ActiveKeyId"] = "test-current",
+                    ["InternalTokens:PrivateKeyPem"] = PrivateKeyPem,
+                    ["InternalTokens:AllowedScopes:0"] = "lobby.read",
+                    ["InternalTokens:AllowedScopes:1"] = "lobby.write"
                 }));
             builder.ConfigureTestServices(services =>
             {

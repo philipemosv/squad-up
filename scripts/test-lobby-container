@@ -3,9 +3,17 @@ set -euo pipefail
 
 readonly image_name="squad-up/lobby-service:local"
 readonly container_name="squad-up-lobby-smoke-${RANDOM}"
+readonly signing_directory="$(mktemp -d)"
+readonly signing_key_path="${signing_directory}/private.pem"
+readonly public_key_path="${signing_directory}/public.pem"
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "${signing_key_path}" 2>/dev/null
+openssl pkey -in "${signing_key_path}" -pubout -out "${public_key_path}" 2>/dev/null
+readonly public_key="$(<"${public_key_path}")"
 
 cleanup() {
   docker rm --force "${container_name}" >/dev/null 2>&1 || true
+  rm -f "${signing_key_path}" "${public_key_path}"
+  rmdir "${signing_directory}"
 }
 
 trap cleanup EXIT
@@ -28,6 +36,7 @@ docker run \
   --tmpfs /tmp:rw,noexec,nosuid,size=16m \
   --publish 127.0.0.1::8080 \
   --security-opt no-new-privileges:true \
+  --env "InternalAuthentication__PublicKeys__smoke-current=${public_key}" \
   "${image_name}" >/dev/null
 
 published_address="$(docker port "${container_name}" 8080/tcp)"

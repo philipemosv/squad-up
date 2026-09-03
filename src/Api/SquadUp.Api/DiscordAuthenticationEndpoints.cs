@@ -1,5 +1,7 @@
 using System.Security.Claims;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Builder;
 using SquadUp.Identity.Application;
 using SquadUp.Identity.Infrastructure;
 
@@ -24,6 +26,16 @@ internal static class DiscordAuthenticationEndpoints
         endpoints.MapGet(
             DiscordOAuthDefaults.CompletionPath,
             (Delegate)CompleteAuthenticationAsync);
+
+        endpoints.MapGet("/auth/antiforgery", (HttpContext context, IAntiforgery antiforgery) =>
+        {
+            context.Response.Headers.CacheControl = "no-store";
+            return Results.Ok(new AntiforgeryResponse(antiforgery.GetAndStoreTokens(context).RequestToken!));
+        })
+            .RequireAuthorization();
+
+        endpoints.MapPost("/auth/logout", (Delegate)LogoutAsync)
+            .RequireAuthorization();
 
         return endpoints;
     }
@@ -61,10 +73,27 @@ internal static class DiscordAuthenticationEndpoints
                     });
             }
 
-            await externalLogins.UpsertAsync(
+            var localAccount = await externalLogins.UpsertAsync(
                 DiscordOAuthDefaults.AuthenticationScheme,
                 discordUserId!,
                 context.RequestAborted);
+
+            var now = TimeProvider.System.GetUtcNow();
+            var principal = new ClaimsPrincipal(new ClaimsIdentity(
+            [
+                new Claim(ClaimTypes.NameIdentifier, localAccount.UserId.ToString("D")),
+                new Claim(ClaimTypes.AuthenticationMethod, DiscordOAuthDefaults.AuthenticationScheme)
+            ], BrowserSessionExtensions.AuthenticationScheme));
+            await context.SignInAsync(
+                BrowserSessionExtensions.AuthenticationScheme,
+                principal,
+                new AuthenticationProperties
+                {
+                    AllowRefresh = false,
+                    IsPersistent = false,
+                    IssuedUtc = now,
+                    ExpiresUtc = now.Add(BrowserSessionExtensions.SessionLifetime)
+                });
             return Results.NoContent();
         }
         finally
@@ -72,4 +101,29 @@ internal static class DiscordAuthenticationEndpoints
             await context.SignOutAsync(DiscordOAuthExtensions.ExternalCookieScheme);
         }
     }
+
+    private static async Task<IResult> LogoutAsync(
+        HttpContext context,
+        IAntiforgery antiforgery)
+    {
+        try
+        {
+            await antiforgery.ValidateRequestAsync(context);
+        }
+        catch (AntiforgeryValidationException)
+        {
+            return Results.Problem(
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "The antiforgery token is invalid.",
+                extensions: new Dictionary<string, object?>
+                {
+                    ["code"] = "antiforgery_validation_failed"
+                });
+        }
+
+        await context.SignOutAsync(BrowserSessionExtensions.AuthenticationScheme);
+        return Results.NoContent();
+    }
+
+    private sealed record AntiforgeryResponse(string RequestToken);
 }

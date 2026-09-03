@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
 using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -13,11 +14,17 @@ namespace SquadUp.ServiceDefaults.Tests;
 
 public sealed class LobbyServiceDefaultsTests : IClassFixture<WebApplicationFactory<Program>>
 {
+    private static readonly string PublicKeyPem = CreatePublicKeyPem();
     private readonly WebApplicationFactory<Program> factory;
 
     public LobbyServiceDefaultsTests(WebApplicationFactory<Program> factory)
     {
-        this.factory = factory.WithWebHostBuilder(builder => builder.UseEnvironment("Testing"));
+        this.factory = factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Testing");
+            builder.ConfigureAppConfiguration((_, configuration) =>
+                AddInternalAuthenticationConfiguration(configuration));
+        });
     }
 
     [Theory]
@@ -55,10 +62,13 @@ public sealed class LobbyServiceDefaultsTests : IClassFixture<WebApplicationFact
             {
                 builder.UseEnvironment("Testing");
                 builder.ConfigureAppConfiguration((_, configuration) =>
+                {
+                    AddInternalAuthenticationConfiguration(configuration);
                     configuration.AddInMemoryCollection(new Dictionary<string, string?>
                     {
                         ["Lobby:ServiceName"] = "invalid service name"
-                    }));
+                    });
+                });
             });
 
         var exception = Assert.Throws<OptionsValidationException>(() => invalidFactory.CreateClient());
@@ -143,4 +153,22 @@ public sealed class LobbyServiceDefaultsTests : IClassFixture<WebApplicationFact
 
     private static IResult ThrowUnhandledException() =>
         throw new InvalidOperationException("Sensitive exception detail for redaction test.");
+
+    private static void AddInternalAuthenticationConfiguration(IConfigurationBuilder configuration) =>
+        configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["InternalAuthentication:Issuer"] = "https://api.squad-up.test",
+            ["InternalAuthentication:Audience"] = "squad-up-lobby",
+            ["InternalAuthentication:ApiClientId"] = "squad-up-api",
+            ["InternalAuthentication:MaximumTokenLifetimeSeconds"] = "120",
+            ["InternalAuthentication:AllowedScopes:0"] = "lobby.read",
+            ["InternalAuthentication:AllowedScopes:1"] = "lobby.write",
+            ["InternalAuthentication:PublicKeys:test-current"] = PublicKeyPem
+        });
+
+    private static string CreatePublicKeyPem()
+    {
+        using var rsa = RSA.Create(2048);
+        return rsa.ExportSubjectPublicKeyInfoPem();
+    }
 }

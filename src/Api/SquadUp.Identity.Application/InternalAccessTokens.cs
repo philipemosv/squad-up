@@ -1,0 +1,12 @@
+namespace SquadUp.Identity.Application;
+
+public interface IInternalAccessTokenIssuer
+{
+    public string Issue(InternalAccessTokenRequest request);
+}
+
+public sealed record InternalAccessTokenRequest(
+    string Audience,
+    string ClientId,
+    IReadOnlyCollection<string> Scopes,
+    Guid? DelegatedUserId = null);

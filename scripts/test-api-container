@@ -4,9 +4,15 @@ set -euo pipefail
 readonly image_name="squad-up/api:local"
 readonly container_name="squad-up-api-smoke-${RANDOM}"
 readonly discord_client_secret="$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')"
+readonly signing_directory="$(mktemp -d)"
+readonly signing_key_path="${signing_directory}/private.pem"
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "${signing_key_path}" 2>/dev/null
+readonly signing_key="$(<"${signing_key_path}")"
 
 cleanup() {
   docker rm --force "${container_name}" >/dev/null 2>&1 || true
+  rm -f "${signing_key_path}"
+  rmdir "${signing_directory}"
 }
 
 trap cleanup EXIT
@@ -32,6 +38,8 @@ docker run \
   --env 'ConnectionStrings__IdentityDatabase=Host=127.0.0.1;Port=1;Database=unavailable;Timeout=1' \
   --env 'Discord__ClientId=123456789012345678' \
   --env "Discord__ClientSecret=${discord_client_secret}" \
+  --env 'InternalTokens__ActiveKeyId=smoke-current' \
+  --env "InternalTokens__PrivateKeyPem=${signing_key}" \
   "${image_name}" >/dev/null
 
 published_address="$(docker port "${container_name}" 8080/tcp)"

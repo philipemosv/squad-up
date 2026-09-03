@@ -134,7 +134,7 @@ and verification exist.
 | --- | --- | --- | --- | --- | --- |
 | TM-01 | S, T | An attacker starts or alters an OAuth callback, causing login CSRF, `state` mismatch, or callback replay. | High | Random single-use `state`, short correlation lifetime, exact redirect URI, server-side code exchange; negative tests for missing, mismatched, expired, and replayed values. | Planned |
 | TM-02 | S, E | A Discord identity is silently linked to the wrong local account or a collision is merged. | High | Unique external-login constraint, explicit linking ceremony for signed-in users, reauthentication, no automatic merge; collision and race tests. | Partially mitigated |
-| TM-03 | S, E | A stolen cookie, JWT, or future refresh token is replayed to impersonate a user or workload. | High | Secure/HttpOnly cookie, short session bounds, audience-specific short JWT, key rotation, token-family rotation/reuse detection if refresh tokens are introduced; replay and wrong-audience tests. | Planned |
+| TM-03 | S, E | A stolen cookie, JWT, or future refresh token is replayed to impersonate a user or workload. | High | Secure/HttpOnly cookie, short session bounds, audience-specific short JWT, key rotation, token-family rotation/reuse detection if refresh tokens are introduced; replay and wrong-audience tests. | Partially mitigated |
 | TM-04 | E, I | Changing a lobby or match identifier exposes or modifies another user's resource (IDOR/BOLA). | High | Resource-based authorization after loading current state, owner/moderator policy, response DTO allowlist; user-A-versus-user-B negative tests for every identifier endpoint. | Planned |
 | TM-05 | T, E | Request binding changes protected fields such as role, owner, verification state, rank ordinal, or capacity. | High | Command-specific input DTOs, server-owned fields excluded from binding, catalog validation, authorization per property; over-posting tests. | Planned |
 | TM-06 | S, T | A forged, stale, duplicated, or incompatible message causes an invalid state transition or repeated effect. | High | Broker IAM/credentials, versioned allowlisted contracts, schema and size validation, stable message IDs, inbox/outbox, optimistic state checks; duplicate, reorder, old-version, and unauthorized-publisher tests. | Planned |
@@ -157,6 +157,17 @@ not merge accounts, and unlink refuses to remove the final login method.
 PostgreSQL integration tests cover duplicate upsert, concurrent upsert,
 cross-account collision, and concurrent unlink. The authenticated HTTP linking
 ceremony and reauthentication remain required before link/unlink is exposed.
+
+TM-03 is partially mitigated by the bounded BFF session and internal JWT
+boundary. The browser cookie is host-only, Secure, HttpOnly, SameSite=Lax,
+non-sliding, and expires absolutely after 30 minutes; cookie-authenticated
+mutations require antiforgery. API-to-Lobby tokens are RS256, expire after two
+minutes, carry explicit workload or delegated-user identity plus allowlisted
+scope, and are rejected for invalid signature, algorithm, issuer, audience,
+lifetime, client, actor kind, or scope. Lobby accepts an additive public-key
+rotation window but rejects private signing material. Server-side session
+revocation and any future bearer refresh-token rotation/reuse detection remain
+unimplemented.
 
 ## Cross-cutting security requirements
 

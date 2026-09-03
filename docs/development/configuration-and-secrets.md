@@ -45,10 +45,12 @@ AI sessions because it prints values. Never paste connection strings, tokens,
 cookies, signing material, invite codes, or the local `.env` contents into
 logs, issues, fixtures, screenshots, or prompts.
 
-The current Lobby skeleton consumes no secret-bearing application setting.
-Compose credentials remain in the ignored local `.env`; do not duplicate them
-in User Secrets until the Lobby receives the corresponding database, broker,
-or cache adapter.
+The Lobby validates internal JWTs with one or more RSA public keys under
+`InternalAuthentication:PublicKeys:<key-id>`. Public keys are not credentials,
+but their configured key IDs and lifecycle must match the API signer. Never
+configure the API private key in Lobby. The remaining Compose credentials stay
+in the ignored local `.env`; do not duplicate them in User Secrets until the
+Lobby receives the corresponding database, broker, or cache adapter.
 
 `SquadUp.Api` requires `ConnectionStrings:IdentityDatabase`. Store its complete
 local value against the API project, using a value obtained from your local
@@ -79,13 +81,54 @@ The adapter fixes the Discord authorization, token, and user-information URLs
 in code and requests only the `identify` scope. It never stores the Discord
 access token in an authentication cookie. The five-minute external cookie is
 Secure, HttpOnly, SameSite=Lax, and is deleted as soon as the transport-level
-callback completes. Local account creation and linking are intentionally left
-to the next Identity slice.
+callback completes. A successful local-account upsert then creates a separate,
+host-only BFF session cookie with a 30-minute absolute lifetime and no sliding
+renewal. Mutating cookie-authenticated endpoints require the antiforgery token
+obtained from `GET /auth/antiforgery`; `POST /auth/logout` is the first enforced
+endpoint.
+
+Multiple API replicas must share a protected Data Protection key ring. Set
+`BrowserSession:DataProtectionKeysPath` to an absolute path backed by the same
+encrypted, access-controlled volume for every replica. Leaving it unset uses
+the host default and is suitable only where session continuity across restart
+or replicas is not required.
+
+## Internal JWT signing and validation
+
+The API signs only RS256 tokens for the fixed Lobby audience. Tokens live for
+two minutes and contain `iss`, `aud`, `sub`, `jti`, `client_id`, `scope`, and
+`token_kind`. A workload token has the API client as `sub`; a delegated token
+has the local user ID as `sub` and `token_kind=delegated_user`. The API refuses
+unknown audiences, clients, or scopes before signing.
+
+Generate a development-only RSA key outside the repository and store its PEM
+only in API User Secrets. The examples deliberately use placeholders so key
+material is never copied into documentation or terminal output:
+
+```bash
+dotnet user-secrets set "InternalTokens:ActiveKeyId" "<key-id>" \
+  --project src/Api/SquadUp.Api
+dotnet user-secrets set "InternalTokens:PrivateKeyPem" "<private-key-pem>" \
+  --project src/Api/SquadUp.Api
+```
+
+Configure the corresponding public PEM at
+`InternalAuthentication:PublicKeys:<key-id>` in Lobby. Rotation is additive:
+deploy the new public key to Lobby first, switch the API active key second, and
+remove the previous public key only after the maximum token lifetime plus clock
+skew has elapsed. Lobby startup rejects private PEMs, undersized keys, missing
+keys, or malformed issuer/audience/client/scope configuration.
+
+Internal JWTs and private keys are Restricted data: never print, log, cache,
+persist in application tables, place in browser storage, or include them in
+messages. Production private keys and Data Protection material belong in the
+approved secret/key service, with only public verification keys distributed to
+Lobby.
 
 The API image remains chiseled and non-root. Its container-only liveness smoke
 uses a deliberately unreachable, credential-free connection string and a
-runtime-generated synthetic OAuth secret to prove that normal startup neither
-contacts the database, Discord, nor applies migrations:
+runtime-generated synthetic OAuth secret and RSA key to prove that normal
+startup neither contacts the database, Discord, nor applies migrations:
 
 ```bash
 ./scripts/test-api-container
