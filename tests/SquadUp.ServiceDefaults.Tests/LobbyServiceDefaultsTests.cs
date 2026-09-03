@@ -9,6 +9,9 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
+using Serilog;
+using Serilog.Formatting.Compact;
+using SquadUp.ServiceDefaults;
 
 namespace SquadUp.ServiceDefaults.Tests;
 
@@ -149,6 +152,44 @@ public sealed class LobbyServiceDefaultsTests : IClassFixture<WebApplicationFact
         Assert.True(document.RootElement.GetProperty("traceId").GetString()?.Length > 0);
         Assert.DoesNotContain("Sensitive exception detail", body, StringComparison.Ordinal);
         Assert.DoesNotContain("InvalidOperationException", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LogSinkRedactsCanariesFromStructuredValuesAndFailureExceptions()
+    {
+        const string authorizationCanary = "authorization-canary-do-not-log";
+        const string cookieCanary = "cookie-canary-do-not-log";
+        const string connectionStringCanary = "Host=database.test;Password=connection-canary-do-not-log";
+        const string bodyCanary = "discord-body-canary-do-not-log";
+        const string exceptionCanary = "exception-canary-do-not-log";
+        const string callbackCanary = "https://api.test/auth/discord/callback?code=code-canary-do-not-log&state=state-canary-do-not-log";
+
+        using var output = new StringWriter();
+        using var logger = new LoggerConfiguration()
+            .WriteTo.Sink(new RedactingTextWriterSink(new RenderedCompactJsonFormatter(), output))
+            .CreateLogger();
+
+        logger.Error(
+            new InvalidOperationException(exceptionCanary),
+            "Discord callback failure {Authorization} {Cookie} {ConnectionString} {CallbackUrl} {@Response}",
+            authorizationCanary,
+            cookieCanary,
+            connectionStringCanary,
+            callbackCanary,
+            new { DiscordBody = bodyCanary, AccessToken = authorizationCanary });
+
+        var log = output.ToString();
+
+        Assert.DoesNotContain(authorizationCanary, log, StringComparison.Ordinal);
+        Assert.DoesNotContain(cookieCanary, log, StringComparison.Ordinal);
+        Assert.DoesNotContain("connection-canary-do-not-log", log, StringComparison.Ordinal);
+        Assert.DoesNotContain(bodyCanary, log, StringComparison.Ordinal);
+        Assert.DoesNotContain(exceptionCanary, log, StringComparison.Ordinal);
+        Assert.DoesNotContain("code-canary-do-not-log", log, StringComparison.Ordinal);
+        Assert.DoesNotContain("state-canary-do-not-log", log, StringComparison.Ordinal);
+        Assert.Contains("[REDACTED]", log, StringComparison.Ordinal);
+        Assert.Contains("exception_type", log, StringComparison.Ordinal);
+        Assert.Contains("InvalidOperationException", log, StringComparison.Ordinal);
     }
 
     private static IResult ThrowUnhandledException() =>

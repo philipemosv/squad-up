@@ -99,7 +99,9 @@ public static class ServiceDefaultsExtensions
             .Enrich.FromLogContext()
             .Enrich.WithProperty("service_name", serviceName)
             .Enrich.WithProperty("deployment_environment", environmentName)
-            .WriteTo.Console(new RenderedCompactJsonFormatter()));
+            .WriteTo.Sink(new RedactingTextWriterSink(
+                new RenderedCompactJsonFormatter(),
+                Console.Out)));
     }
 
     private static void AddOpenTelemetry(
