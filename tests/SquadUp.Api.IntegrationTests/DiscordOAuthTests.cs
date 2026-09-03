@@ -424,6 +424,7 @@ public sealed class DiscordOAuthTests
         {
             this.backchannel = backchannel;
             ClientSecret = RandomNumberGenerator.GetHexString(32);
+            backchannel.ConfigureExpectedClientCredentials(ClientId, ClientSecret);
             using var rsa = RSA.Create(2048);
             PrivateKeyPem = rsa.ExportRSAPrivateKeyPem();
             ExternalLogins = new RecordingExternalLoginAccountService();
@@ -594,6 +595,16 @@ public sealed class DiscordOAuthTests
 
         public int RequestCount => TokenRequestCount + UserInformationRequestCount;
 
+        public string? ExpectedClientId { get; private set; }
+
+        public string? ExpectedClientSecret { get; private set; }
+
+        public void ConfigureExpectedClientCredentials(string clientId, string clientSecret)
+        {
+            ExpectedClientId = clientId;
+            ExpectedClientSecret = clientSecret;
+        }
+
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken cancellationToken)
@@ -604,6 +615,9 @@ public sealed class DiscordOAuthTests
                 Assert.Equal(HttpMethod.Post, request.Method);
                 var form = QueryHelpers.ParseQuery(
                     await request.Content!.ReadAsStringAsync(cancellationToken));
+                Assert.Equal("authorization_code", Assert.Single(form["grant_type"]));
+                Assert.Equal(ExpectedClientId, Assert.Single(form["client_id"]));
+                Assert.Equal(ExpectedClientSecret, Assert.Single(form["client_secret"]));
                 Assert.Equal(AuthorizationCode, Assert.Single(form["code"]));
                 Assert.Equal(
                     "https://localhost/auth/discord/callback",
