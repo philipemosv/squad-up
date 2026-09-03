@@ -28,6 +28,13 @@ public sealed class LobbyLayerDependencyTests
                 ])
         };
 
+        AssertDependencies(repositoryRoot, rules);
+    }
+
+    private static void AssertDependencies(
+        string repositoryRoot,
+        IEnumerable<DependencyRule> rules)
+    {
         foreach (var rule in rules)
         {
             var projectPath = Path.Combine(repositoryRoot, rule.ProjectPath);
@@ -46,6 +53,33 @@ public sealed class LobbyLayerDependencyTests
 
             Assert.Equal(expectedDependencies, actualDependencies);
         }
+    }
+
+    [Fact]
+    public void IdentityProjectsMustHaveOnlyTheAllowedDirectDependencies()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var rules = new[]
+        {
+            new DependencyRule(
+                "src/Api/SquadUp.Identity.Domain/SquadUp.Identity.Domain.csproj",
+                []),
+            new DependencyRule(
+                "src/Api/SquadUp.Identity.Application/SquadUp.Identity.Application.csproj",
+                ["SquadUp.Identity.Domain"]),
+            new DependencyRule(
+                "src/Api/SquadUp.Identity.Infrastructure/SquadUp.Identity.Infrastructure.csproj",
+                ["SquadUp.Identity.Application"]),
+            new DependencyRule(
+                "src/Api/SquadUp.Api/SquadUp.Api.csproj",
+                [
+                    "SquadUp.Identity.Application",
+                    "SquadUp.Identity.Infrastructure",
+                    "SquadUp.ServiceDefaults"
+                ])
+        };
+
+        AssertDependencies(repositoryRoot, rules);
     }
 
     private static string FindRepositoryRoot()

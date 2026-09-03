@@ -50,6 +50,27 @@ Compose credentials remain in the ignored local `.env`; do not duplicate them
 in User Secrets until the Lobby receives the corresponding database, broker,
 or cache adapter.
 
+`SquadUp.Api` requires `ConnectionStrings:IdentityDatabase`. Store its complete
+local value against the API project, using a value obtained from your local
+environment rather than a value copied into documentation or shell history:
+
+```bash
+dotnet user-secrets set "ConnectionStrings:IdentityDatabase" "<local-value>" \
+  --project src/Api/SquadUp.Api
+```
+
+The application validates the connection string shape at startup without
+opening the database or echoing the value. Schema migration remains a separate,
+explicit operation with a distinct deployment identity.
+
+The API image remains chiseled and non-root. Its container-only liveness smoke
+uses a deliberately unreachable, credential-free connection string to prove
+that normal startup neither contacts the database nor applies migrations:
+
+```bash
+./scripts/test-api-container
+```
+
 Production uses workload identity where possible and AWS Secrets Manager for
 credentials that cannot use IAM. Environment variables and command-line
 arguments are not an approved long-term secret store.

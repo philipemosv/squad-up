@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly image_name="squad-up/api:local"
+readonly container_name="squad-up-api-smoke-${RANDOM}"
+
+cleanup() {
+  docker rm --force "${container_name}" >/dev/null 2>&1 || true
+}
+
+trap cleanup EXIT
+
+docker build \
+  --file src/Api/SquadUp.Api/Dockerfile \
+  --tag "${image_name}" \
+  .
+
+runtime_user="$(docker image inspect --format '{{.Config.User}}' "${image_name}")"
+if [[ -z "${runtime_user}" || "${runtime_user}" == "0" || "${runtime_user}" == "root" ]]; then
+  echo "API image must declare a non-root runtime user." >&2
+  exit 1
+fi
+
+docker run \
+  --detach \
+  --name "${container_name}" \
+  --read-only \
+  --tmpfs /tmp:rw,noexec,nosuid,size=16m \
+  --publish 127.0.0.1::8080 \
+  --security-opt no-new-privileges:true \
+  --env 'ConnectionStrings__IdentityDatabase=Host=127.0.0.1;Port=1;Database=unavailable;Timeout=1' \
+  "${image_name}" >/dev/null
+
+published_address="$(docker port "${container_name}" 8080/tcp)"
+health_url="http://${published_address}/health/live"
+
+for _ in {1..30}; do
+  if curl --fail --silent "${health_url}" >/dev/null; then
+    echo "API container is healthy and runs as user ${runtime_user}."
+    exit 0
+  fi
+
+  sleep 1
+done
+
+docker logs "${container_name}" >&2
+echo "API container did not become ready at ${health_url}." >&2
+exit 1
