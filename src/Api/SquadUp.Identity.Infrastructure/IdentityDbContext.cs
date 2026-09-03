@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using SquadUp.Identity.Application;
 
 namespace SquadUp.Identity.Infrastructure;
 
@@ -68,8 +69,20 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
             entity.HasIndex(role => role.NormalizedName)
                 .IsUnique()
                 .HasDatabaseName("ux_roles_normalized_name");
+            entity.HasData(
+                CreateRole(ApplicationRoleDefaults.PlayerId, SquadUpRoles.Player),
+                CreateRole(ApplicationRoleDefaults.ModeratorId, SquadUpRoles.Moderator),
+                CreateRole(ApplicationRoleDefaults.AdminId, SquadUpRoles.Admin));
         });
     }
+
+    private static ApplicationRole CreateRole(Guid id, string name) => new()
+    {
+        Id = id,
+        Name = name,
+        NormalizedName = name.ToUpperInvariant(),
+        ConcurrencyStamp = null
+    };
 
     private static void ConfigureUserClaims(ModelBuilder builder)
     {

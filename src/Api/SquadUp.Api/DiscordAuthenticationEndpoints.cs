@@ -42,7 +42,8 @@ internal static class DiscordAuthenticationEndpoints
 
     private static async Task<IResult> CompleteAuthenticationAsync(
         HttpContext context,
-        IExternalLoginAccountService externalLogins)
+        IExternalLoginAccountService externalLogins,
+        IUserSessionClaimsProvider sessionClaimsProvider)
     {
         var authentication = await context.AuthenticateAsync(
             DiscordOAuthExtensions.ExternalCookieScheme);
@@ -78,12 +79,33 @@ internal static class DiscordAuthenticationEndpoints
                 discordUserId!,
                 context.RequestAborted);
 
+            var sessionClaims = await sessionClaimsProvider.FindAsync(
+                localAccount.UserId,
+                context.RequestAborted);
+            if (sessionClaims is null)
+            {
+                return Results.Problem(
+                    statusCode: StatusCodes.Status403Forbidden,
+                    title: "The local account is not authorized.",
+                    extensions: new Dictionary<string, object?>
+                    {
+                        ["code"] = "local_account_not_authorized"
+                    });
+            }
+
             var now = TimeProvider.System.GetUtcNow();
+            var claims = new List<Claim>
+            {
+                new(SquadUpClaimTypes.Subject, sessionClaims.UserId.ToString("D")),
+                new(ClaimTypes.AuthenticationMethod, DiscordOAuthDefaults.AuthenticationScheme)
+            };
+            claims.AddRange(sessionClaims.Roles.Select(role =>
+                new Claim(SquadUpClaimTypes.Role, role)));
             var principal = new ClaimsPrincipal(new ClaimsIdentity(
-            [
-                new Claim(ClaimTypes.NameIdentifier, localAccount.UserId.ToString("D")),
-                new Claim(ClaimTypes.AuthenticationMethod, DiscordOAuthDefaults.AuthenticationScheme)
-            ], BrowserSessionExtensions.AuthenticationScheme));
+                claims,
+                BrowserSessionExtensions.AuthenticationScheme,
+                SquadUpClaimTypes.Subject,
+                SquadUpClaimTypes.Role));
             await context.SignInAsync(
                 BrowserSessionExtensions.AuthenticationScheme,
                 principal,

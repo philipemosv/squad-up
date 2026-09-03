@@ -69,7 +69,7 @@ public static class BrowserSessionExtensions
                 };
             });
 
-        services.AddAuthorization();
+        services.AddSquadUpAuthorization();
         services.AddAntiforgery(options =>
         {
             options.HeaderName = AntiforgeryHeaderName;

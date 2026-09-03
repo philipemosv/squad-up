@@ -93,17 +93,32 @@ public sealed class IdentityPersistenceTests : IClassFixture<IdentityDatabaseFix
         Assert.Equal(user.Id, persisted?.Id);
     }
 
-    [Fact]
-    public async Task GeneratedIdempotentSqlCanBeAppliedRepeatedly()
+    [Theory]
+    [InlineData("001_initial_identity.sql")]
+    [InlineData("002_seed_application_roles.sql")]
+    public async Task GeneratedIdempotentSqlCanBeAppliedRepeatedly(string scriptName)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         var repositoryRoot = FindRepositoryRoot();
         var scriptPath = Path.Combine(
             repositoryRoot,
-            "docs/database/migrations/identity/001_initial_identity.sql");
+            "docs/database/migrations/identity",
+            scriptName);
         var sql = await File.ReadAllTextAsync(scriptPath, timeout.Token);
         await using var connection = new NpgsqlConnection(fixture.PostgreSql.GetConnectionString());
         await connection.OpenAsync(timeout.Token);
+
+        if (scriptName != "001_initial_identity.sql")
+        {
+            var baselineSql = await File.ReadAllTextAsync(
+                Path.Combine(
+                    repositoryRoot,
+                    "docs/database/migrations/identity/001_initial_identity.sql"),
+                timeout.Token);
+            await using var baselineCommand = connection.CreateCommand();
+            baselineCommand.CommandText = baselineSql;
+            await baselineCommand.ExecuteNonQueryAsync(timeout.Token);
+        }
 
         for (var attempt = 0; attempt < 2; attempt++)
         {

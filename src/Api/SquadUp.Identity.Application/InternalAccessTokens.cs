@@ -9,4 +9,5 @@ public sealed record InternalAccessTokenRequest(
     string Audience,
     string ClientId,
     IReadOnlyCollection<string> Scopes,
-    Guid? DelegatedUserId = null);
+    Guid? DelegatedUserId = null,
+    IReadOnlyCollection<string>? Roles = null);

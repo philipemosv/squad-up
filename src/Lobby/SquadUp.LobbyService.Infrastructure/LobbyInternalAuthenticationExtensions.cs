@@ -15,6 +15,7 @@ public static class LobbyInternalAuthenticationExtensions
     public const string AuthenticationScheme = "SquadUp.Internal";
     public const string ReadPolicy = "lobby.read";
     public const string WritePolicy = "lobby.write";
+    public const string OwnerOrModeratorPolicy = "lobby.owner-or-moderator";
 
     public static IServiceCollection AddLobbyInternalAuthentication(
         this IServiceCollection services,
@@ -49,7 +50,13 @@ public static class LobbyInternalAuthenticationExtensions
         {
             options.AddPolicy(ReadPolicy, policy => RequireScope(policy, ReadPolicy));
             options.AddPolicy(WritePolicy, policy => RequireScope(policy, WritePolicy));
+            options.AddPolicy(OwnerOrModeratorPolicy, policy =>
+            {
+                RequireScope(policy, WritePolicy);
+                policy.AddRequirements(new LobbyOwnerOrModeratorRequirement());
+            });
         });
+        services.AddSingleton<IAuthorizationHandler, LobbyOwnerOrModeratorHandler>();
 
         return services;
     }
@@ -73,7 +80,8 @@ public static class LobbyInternalAuthenticationExtensions
             ClockSkew = TimeSpan.FromSeconds(30),
             ValidAlgorithms = [SecurityAlgorithms.RsaSha256],
             IssuerSigningKeys = CreatePublicKeys(options.PublicKeys),
-            NameClaimType = JwtRegisteredClaimNames.Sub
+            NameClaimType = JwtRegisteredClaimNames.Sub,
+            RoleClaimType = "role"
         };
         bearer.Events = new JwtBearerEvents
         {
@@ -106,6 +114,7 @@ public static class LobbyInternalAuthenticationExtensions
         var tokenKind = principal?.FindFirstValue("token_kind");
         var scopes = GetScopes(principal);
         var issuedAtValue = principal?.FindFirstValue(JwtRegisteredClaimNames.Iat);
+        var roles = principal?.FindAll("role").Select(claim => claim.Value).ToArray() ?? [];
         var hasBoundedLifetime = long.TryParse(issuedAtValue, out var issuedAtSeconds) &&
             TryGetUtcDateTime(issuedAtSeconds, out var issuedAt) &&
             context.SecurityToken.ValidTo > issuedAt &&
@@ -118,12 +127,15 @@ public static class LobbyInternalAuthenticationExtensions
             "delegated_user" => Guid.TryParse(subject, out var userId) && userId != Guid.Empty,
             _ => false
         };
+        var validRoles = roles.All(role => role is "Player" or "Moderator" or "Admin") &&
+            (tokenKind == "delegated_user" || roles.Length == 0);
         if (!validSubject ||
             !Guid.TryParse(tokenId, out _) ||
             !string.Equals(clientId, options.ApiClientId, StringComparison.Ordinal) ||
             !hasBoundedLifetime ||
             scopes.Count == 0 ||
-            scopes.Any(scope => !options.AllowedScopes.Contains(scope, StringComparer.Ordinal)))
+            scopes.Any(scope => !options.AllowedScopes.Contains(scope, StringComparer.Ordinal)) ||
+            !validRoles)
         {
             context.Fail("The internal token is missing required bounded claims.");
         }

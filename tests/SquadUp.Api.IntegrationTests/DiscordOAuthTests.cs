@@ -118,6 +118,16 @@ public sealed class DiscordOAuthTests
             .Get(BrowserSessionExtensions.AuthenticationScheme);
         Assert.Equal(TimeSpan.FromMinutes(30), cookieOptions.ExpireTimeSpan);
         Assert.False(cookieOptions.SlidingExpiration);
+        var protectedTicket = Uri.UnescapeDataString(
+            sessionCookie.Pair[(sessionCookie.Pair.IndexOf('=', StringComparison.Ordinal) + 1)..]);
+        var ticket = cookieOptions.TicketDataFormat.Unprotect(protectedTicket);
+        Assert.NotNull(ticket);
+        Assert.Equal(
+            application.ExternalLogins.UserId.ToString("D"),
+            ticket.Principal.FindFirst(SquadUpClaimTypes.Subject)?.Value);
+        Assert.True(ticket.Principal.IsInRole(SquadUpRoles.Player));
+        Assert.False(ticket.Principal.IsInRole(SquadUpRoles.Admin));
+        Assert.Null(ticket.Principal.FindFirst(SquadUpClaimTypes.DiscordUserId));
     }
 
     [Fact]
@@ -402,12 +412,17 @@ public sealed class DiscordOAuthTests
                     options => options.Backchannel = new HttpClient(backchannel, disposeHandler: false));
                 services.RemoveAll<IExternalLoginAccountService>();
                 services.AddSingleton<IExternalLoginAccountService>(ExternalLogins);
+                services.RemoveAll<IUserSessionClaimsProvider>();
+                services.AddSingleton<IUserSessionClaimsProvider>(
+                    new StubUserSessionClaimsProvider(ExternalLogins.UserId));
             });
         }
     }
 
     private sealed class RecordingExternalLoginAccountService : IExternalLoginAccountService
     {
+        public Guid UserId { get; } = Guid.CreateVersion7();
+
         public int UpsertCount { get; private set; }
 
         public string? LoginProvider { get; private set; }
@@ -422,7 +437,7 @@ public sealed class DiscordOAuthTests
             UpsertCount++;
             LoginProvider = loginProvider;
             ProviderKey = providerKey;
-            return Task.FromResult(new ExternalLoginUpsertResult(Guid.CreateVersion7(), WasCreated: true));
+            return Task.FromResult(new ExternalLoginUpsertResult(UserId, WasCreated: true));
         }
 
         public Task<ExternalLoginLinkResult> LinkAsync(
@@ -436,6 +451,16 @@ public sealed class DiscordOAuthTests
             string loginProvider,
             string providerKey,
             CancellationToken cancellationToken) => throw new NotSupportedException();
+    }
+
+    private sealed class StubUserSessionClaimsProvider(Guid userId) : IUserSessionClaimsProvider
+    {
+        public Task<UserSessionClaims?> FindAsync(
+            Guid requestedUserId,
+            CancellationToken cancellationToken) => Task.FromResult<UserSessionClaims?>(
+                requestedUserId == userId
+                    ? new UserSessionClaims(userId, [SquadUpRoles.Player])
+                    : null);
     }
 
     public enum BackchannelFailure
@@ -504,7 +529,7 @@ public sealed class DiscordOAuthTests
                 }
 
                 return JsonResponse(
-                    $$"""{"id":"{{userId}}","username":"synthetic-user"}""");
+                    $$"""{"id":"{{userId}}","username":"synthetic-user","role":"Admin"}""");
             }
 
             return new HttpResponseMessage(HttpStatusCode.NotFound);

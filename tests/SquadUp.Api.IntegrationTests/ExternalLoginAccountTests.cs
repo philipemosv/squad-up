@@ -309,6 +309,11 @@ public sealed class ExternalLoginAccountTests : IClassFixture<IdentityDatabaseFi
             candidate => candidate.LoginProvider == Discord && candidate.ProviderKey == providerKey,
             cancellationToken);
         Assert.Equal(expectedUserId, login.UserId);
+        var sessionClaims = await scope.ServiceProvider
+            .GetRequiredService<IUserSessionClaimsProvider>()
+            .FindAsync(expectedUserId, cancellationToken);
+        Assert.NotNull(sessionClaims);
+        Assert.Contains(SquadUpRoles.Player, sessionClaims.Roles);
     }
 
     private static async Task<int> CountUsersAsync(

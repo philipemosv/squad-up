@@ -135,7 +135,7 @@ and verification exist.
 | TM-01 | S, T | An attacker starts or alters an OAuth callback, causing login CSRF, `state` mismatch, or callback replay. | High | Random single-use `state`, short correlation lifetime, exact redirect URI, server-side code exchange; negative tests for missing, mismatched, expired, and replayed values. | Planned |
 | TM-02 | S, E | A Discord identity is silently linked to the wrong local account or a collision is merged. | High | Unique external-login constraint, explicit linking ceremony for signed-in users, reauthentication, no automatic merge; collision and race tests. | Partially mitigated |
 | TM-03 | S, E | A stolen cookie, JWT, or future refresh token is replayed to impersonate a user or workload. | High | Secure/HttpOnly cookie, short session bounds, audience-specific short JWT, key rotation, token-family rotation/reuse detection if refresh tokens are introduced; replay and wrong-audience tests. | Partially mitigated |
-| TM-04 | E, I | Changing a lobby or match identifier exposes or modifies another user's resource (IDOR/BOLA). | High | Resource-based authorization after loading current state, owner/moderator policy, response DTO allowlist; user-A-versus-user-B negative tests for every identifier endpoint. | Planned |
+| TM-04 | E, I | Changing a lobby or match identifier exposes or modifies another user's resource (IDOR/BOLA). | High | Resource-based authorization after loading current state, owner/moderator policy, response DTO allowlist; user-A-versus-user-B negative tests for every identifier endpoint. | Partially mitigated |
 | TM-05 | T, E | Request binding changes protected fields such as role, owner, verification state, rank ordinal, or capacity. | High | Command-specific input DTOs, server-owned fields excluded from binding, catalog validation, authorization per property; over-posting tests. | Planned |
 | TM-06 | S, T | A forged, stale, duplicated, or incompatible message causes an invalid state transition or repeated effect. | High | Broker IAM/credentials, versioned allowlisted contracts, schema and size validation, stable message IDs, inbox/outbox, optimistic state checks; duplicate, reorder, old-version, and unauthorized-publisher tests. | Planned |
 | TM-07 | I, R | A poison message containing pseudonymous data remains in a DLQ, leaks through tooling, or is replayed without an audit trail. | High | Minimize message fields, encrypt transport/storage, restrict DLQ access, redact operator output, bounded retention, audited selective redrive; sanitized poison-message test and access review. | Planned |
@@ -168,6 +168,13 @@ lifetime, client, actor kind, or scope. Lobby accepts an additive public-key
 rotation window but rejects private signing material. Server-side session
 revocation and any future bearer refresh-token rotation/reuse detection remain
 unimplemented.
+
+TM-04 is partially mitigated by the Lobby owner-or-moderator requirement and
+HTTP authorization harness. The handler fails closed for malformed or
+different-user subjects, requires `lobby.write`, and accepts administrative
+override only from allowlisted delegated-user roles. Every real Lobby or Match
+identifier endpoint must still load current owned state before invoking the
+policy and add its own user-A-versus-user-B response test.
 
 ## Cross-cutting security requirements
 

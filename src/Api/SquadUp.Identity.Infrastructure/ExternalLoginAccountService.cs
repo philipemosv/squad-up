@@ -26,6 +26,11 @@ internal sealed class ExternalLoginAccountService(IdentityDbContext context)
         var user = new ApplicationUser();
         context.Users.Add(user);
         context.UserLogins.Add(CreateLogin(user.Id, loginProvider, providerKey));
+        context.UserRoles.Add(new IdentityUserRole<Guid>
+        {
+            UserId = user.Id,
+            RoleId = ApplicationRoleDefaults.PlayerId
+        });
 
         try
         {

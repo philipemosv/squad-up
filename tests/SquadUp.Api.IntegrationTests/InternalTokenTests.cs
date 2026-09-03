@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Security.Cryptography;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -14,6 +15,7 @@ using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using SquadUp.Identity.Application;
 using SquadUp.Identity.Infrastructure;
+using SquadUp.LobbyService.Application;
 using SquadUp.LobbyService.Infrastructure;
 
 namespace SquadUp.Api.IntegrationTests;
@@ -43,7 +45,8 @@ public sealed class InternalTokenTests
             Audience,
             ClientId,
             [LobbyInternalAuthenticationExtensions.WritePolicy],
-            delegatedUserId));
+            delegatedUserId,
+            [SquadUpRoles.Player]));
 
         AssertToken(
             workloadToken,
@@ -54,7 +57,8 @@ public sealed class InternalTokenTests
             delegatedToken,
             delegatedUserId.ToString("D"),
             "delegated_user",
-            LobbyInternalAuthenticationExtensions.WritePolicy);
+            LobbyInternalAuthenticationExtensions.WritePolicy,
+            SquadUpRoles.Player);
     }
 
     [Fact]
@@ -75,6 +79,42 @@ public sealed class InternalTokenTests
             Audience,
             ClientId,
             ["profile.write"])));
+        Assert.Throws<ArgumentException>(() => issuer.Issue(new InternalAccessTokenRequest(
+            Audience,
+            ClientId,
+            [LobbyInternalAuthenticationExtensions.WritePolicy],
+            Roles: [SquadUpRoles.Admin])));
+        Assert.Throws<ArgumentException>(() => issuer.Issue(new InternalAccessTokenRequest(
+            Audience,
+            ClientId,
+            [LobbyInternalAuthenticationExtensions.WritePolicy],
+            Guid.CreateVersion7(),
+            ["SuperAdmin"])));
+    }
+
+    [Fact]
+    public async Task ResourcePolicyAllowsOwnerOrModeratorAndRejectsDifferentPlayer()
+    {
+        using var issuerHost = await CreateIssuerHostAsync();
+        var issuer = issuerHost.Services.GetRequiredService<IInternalAccessTokenIssuer>();
+        await using var lobby = await CreateLobbyApplicationAsync();
+        using var client = lobby.GetTestClient();
+        var ownerId = Guid.CreateVersion7();
+        var differentUserId = Guid.CreateVersion7();
+        var ownerToken = IssueDelegatedToken(issuer, ownerId, SquadUpRoles.Player);
+        var differentPlayerToken = IssueDelegatedToken(issuer, differentUserId, SquadUpRoles.Player);
+        var moderatorToken = IssueDelegatedToken(issuer, differentUserId, SquadUpRoles.Moderator);
+
+        using var owner = await SendBearerAsync(client, $"/owned/{ownerId:D}", ownerToken);
+        using var differentPlayer = await SendBearerAsync(
+            client,
+            $"/owned/{ownerId:D}",
+            differentPlayerToken);
+        using var moderator = await SendBearerAsync(client, $"/owned/{ownerId:D}", moderatorToken);
+
+        Assert.Equal(HttpStatusCode.NoContent, owner.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, differentPlayer.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, moderator.StatusCode);
     }
 
     [Fact]
@@ -174,9 +214,33 @@ public sealed class InternalTokenTests
             .RequireAuthorization(LobbyInternalAuthenticationExtensions.ReadPolicy);
         app.MapGet("/write", static () => Results.NoContent())
             .RequireAuthorization(LobbyInternalAuthenticationExtensions.WritePolicy);
+        app.MapGet("/owned/{ownerUserId:guid}", AuthorizeOwnedLobbyAsync)
+            .RequireAuthorization(LobbyInternalAuthenticationExtensions.WritePolicy);
         await app.StartAsync();
         return app;
     }
+
+    private static async Task<IResult> AuthorizeOwnedLobbyAsync(
+        Guid ownerUserId,
+        HttpContext context,
+        IAuthorizationService authorization)
+    {
+        var result = await authorization.AuthorizeAsync(
+            context.User,
+            new LobbyAuthorizationResource(ownerUserId),
+            LobbyInternalAuthenticationExtensions.OwnerOrModeratorPolicy);
+        return result.Succeeded ? Results.NoContent() : Results.Forbid();
+    }
+
+    private static string IssueDelegatedToken(
+        IInternalAccessTokenIssuer issuer,
+        Guid userId,
+        string role) => issuer.Issue(new InternalAccessTokenRequest(
+            Audience,
+            ClientId,
+            [LobbyInternalAuthenticationExtensions.WritePolicy],
+            userId,
+            [role]));
 
     private static IConfiguration CreateIssuerConfiguration(string privateKeyPem) =>
         new ConfigurationBuilder()
@@ -218,7 +282,12 @@ public sealed class InternalTokenTests
         return await client.SendAsync(request);
     }
 
-    private static void AssertToken(string encodedToken, string subject, string tokenKind, string scope)
+    private static void AssertToken(
+        string encodedToken,
+        string subject,
+        string tokenKind,
+        string scope,
+        string? role = null)
     {
         var token = new JsonWebTokenHandler().ReadJsonWebToken(encodedToken);
 
@@ -230,6 +299,10 @@ public sealed class InternalTokenTests
         Assert.Equal(ClientId, token.GetClaim("client_id").Value);
         Assert.Equal(tokenKind, token.GetClaim("token_kind").Value);
         Assert.Equal(scope, token.GetClaim("scope").Value);
+        if (role is not null)
+        {
+            Assert.Equal(role, token.GetClaim(SquadUpClaimTypes.Role).Value);
+        }
         Assert.True(Guid.TryParse(token.Id, out _));
         Assert.InRange(token.ValidTo - token.IssuedAt, TimeSpan.FromSeconds(119), TimeSpan.FromSeconds(121));
     }

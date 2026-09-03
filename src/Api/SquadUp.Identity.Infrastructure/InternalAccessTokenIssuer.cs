@@ -63,6 +63,18 @@ internal sealed class InternalAccessTokenIssuer : IInternalAccessTokenIssuer, ID
             throw new ArgumentException("A delegated user ID cannot be empty.", nameof(request));
         }
 
+        var roles = request.Roles?
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToArray() ?? [];
+        if (roles.Any(role => !SquadUpRoles.IsDefined(role)) ||
+            (request.DelegatedUserId is null && roles.Length > 0))
+        {
+            throw new ArgumentException(
+                "Only delegated users may carry allowlisted application roles.",
+                nameof(request));
+        }
+
         var now = timeProvider.GetUtcNow().UtcDateTime;
         var isDelegated = request.DelegatedUserId is not null;
         var subject = isDelegated
@@ -78,7 +90,8 @@ internal sealed class InternalAccessTokenIssuer : IInternalAccessTokenIssuer, ID
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.CreateVersion7().ToString("D")),
                 new Claim("client_id", options.ClientId),
                 new Claim("scope", string.Join(' ', scopes)),
-                new Claim("token_kind", isDelegated ? DelegatedUserTokenKind : WorkloadTokenKind)
+                new Claim("token_kind", isDelegated ? DelegatedUserTokenKind : WorkloadTokenKind),
+                .. roles.Select(role => new Claim(SquadUpClaimTypes.Role, role))
             ]),
             IssuedAt = now,
             NotBefore = now,

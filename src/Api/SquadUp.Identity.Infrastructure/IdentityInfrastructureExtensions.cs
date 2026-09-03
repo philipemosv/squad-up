@@ -50,6 +50,7 @@ public static class IdentityInfrastructureExtensions
             .AddEntityFrameworkStores<IdentityDbContext>();
 
         services.AddScoped<IExternalLoginAccountService, ExternalLoginAccountService>();
+        services.AddScoped<IUserSessionClaimsProvider, UserSessionClaimsProvider>();
 
         return services;
     }
