@@ -11,4 +11,9 @@ public static class DiscordOAuthDefaults
     public const string CallbackPath = "/auth/discord/callback";
     public const string CompletionPath = "/auth/discord/complete";
     public const string Scope = "identify";
+
+    public static bool IsValidUserId(string? userId) =>
+        userId is not null &&
+        userId.Length is >= 17 and <= 20 &&
+        userId.All(char.IsAsciiDigit);
 }

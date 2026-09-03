@@ -1,4 +1,6 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
+using SquadUp.Identity.Application;
 using SquadUp.Identity.Infrastructure;
 
 namespace SquadUp.Api;
@@ -26,14 +28,16 @@ internal static class DiscordAuthenticationEndpoints
         return endpoints;
     }
 
-    private static async Task<IResult> CompleteAuthenticationAsync(HttpContext context)
+    private static async Task<IResult> CompleteAuthenticationAsync(
+        HttpContext context,
+        IExternalLoginAccountService externalLogins)
     {
         var authentication = await context.AuthenticateAsync(
             DiscordOAuthExtensions.ExternalCookieScheme);
-        await context.SignOutAsync(DiscordOAuthExtensions.ExternalCookieScheme);
 
         if (!authentication.Succeeded)
         {
+            await context.SignOutAsync(DiscordOAuthExtensions.ExternalCookieScheme);
             return Results.Problem(
                 statusCode: StatusCodes.Status400BadRequest,
                 title: "Discord authentication could not be completed.",
@@ -43,6 +47,29 @@ internal static class DiscordAuthenticationEndpoints
                 });
         }
 
-        return Results.NoContent();
+        try
+        {
+            var discordUserId = authentication.Principal.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!DiscordOAuthDefaults.IsValidUserId(discordUserId))
+            {
+                return Results.Problem(
+                    statusCode: StatusCodes.Status400BadRequest,
+                    title: "Discord authentication could not be completed.",
+                    extensions: new Dictionary<string, object?>
+                    {
+                        ["code"] = "discord_external_identity_invalid"
+                    });
+            }
+
+            await externalLogins.UpsertAsync(
+                DiscordOAuthDefaults.AuthenticationScheme,
+                discordUserId!,
+                context.RequestAborted);
+            return Results.NoContent();
+        }
+        finally
+        {
+            await context.SignOutAsync(DiscordOAuthExtensions.ExternalCookieScheme);
+        }
     }
 }

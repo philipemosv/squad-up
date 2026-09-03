@@ -133,7 +133,7 @@ and verification exist.
 | ID | STRIDE | Scenario and impact | Priority | Required controls and verification | Status |
 | --- | --- | --- | --- | --- | --- |
 | TM-01 | S, T | An attacker starts or alters an OAuth callback, causing login CSRF, `state` mismatch, or callback replay. | High | Random single-use `state`, short correlation lifetime, exact redirect URI, server-side code exchange; negative tests for missing, mismatched, expired, and replayed values. | Planned |
-| TM-02 | S, E | A Discord identity is silently linked to the wrong local account or a collision is merged. | High | Unique external-login constraint, explicit linking ceremony for signed-in users, reauthentication, no automatic merge; collision and race tests. | Planned |
+| TM-02 | S, E | A Discord identity is silently linked to the wrong local account or a collision is merged. | High | Unique external-login constraint, explicit linking ceremony for signed-in users, reauthentication, no automatic merge; collision and race tests. | Partially mitigated |
 | TM-03 | S, E | A stolen cookie, JWT, or future refresh token is replayed to impersonate a user or workload. | High | Secure/HttpOnly cookie, short session bounds, audience-specific short JWT, key rotation, token-family rotation/reuse detection if refresh tokens are introduced; replay and wrong-audience tests. | Planned |
 | TM-04 | E, I | Changing a lobby or match identifier exposes or modifies another user's resource (IDOR/BOLA). | High | Resource-based authorization after loading current state, owner/moderator policy, response DTO allowlist; user-A-versus-user-B negative tests for every identifier endpoint. | Planned |
 | TM-05 | T, E | Request binding changes protected fields such as role, owner, verification state, rank ordinal, or capacity. | High | Command-specific input DTOs, server-owned fields excluded from binding, catalog validation, authorization per property; over-posting tests. | Planned |
@@ -148,6 +148,15 @@ and verification exist.
 | TM-14 | T, R | A user denies cancelling a lobby, changing privilege, or replaying a message because audit records are missing or editable. | Medium | Structured audit event with actor, action, target, result, time, and correlation ID; restricted append path and retention; success/failure audit tests without sensitive payloads. | Planned |
 | TM-15 | I | APIs, logs, traces, cache, or integration events expose more profile/member data than the consumer requires. | High | Explicit DTO and contract allowlists, field-level authorization, data-classification review, log redaction, no full entity serialization; response and telemetry snapshot tests. | Planned |
 | TM-16 | D, T | Concurrent joins overfill a lobby or create inconsistent membership and completion events. | High | Domain invariant, unique membership constraint, optimistic concurrency, atomic outbox and bounded retry; at least 50 concurrent joins into five seats. | Planned |
+
+TM-02 is partially mitigated by the transactional external-login service: the
+existing `(login_provider, provider_key)` primary key prevents one Discord
+identity from belonging to multiple local users, local-account operations are
+serialized before checking for a second Discord login, collision outcomes do
+not merge accounts, and unlink refuses to remove the final login method.
+PostgreSQL integration tests cover duplicate upsert, concurrent upsert,
+cross-account collision, and concurrent unlink. The authenticated HTTP linking
+ceremony and reauthentication remain required before link/unlink is exposed.
 
 ## Cross-cutting security requirements
 

@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
 using Npgsql;
+using SquadUp.Identity.Application;
 
 namespace SquadUp.Identity.Infrastructure;
 
@@ -47,6 +48,8 @@ public static class IdentityInfrastructureExtensions
             .AddIdentityCore<ApplicationUser>(options => options.User.RequireUniqueEmail = false)
             .AddRoles<ApplicationRole>()
             .AddEntityFrameworkStores<IdentityDbContext>();
+
+        services.AddScoped<IExternalLoginAccountService, ExternalLoginAccountService>();
 
         return services;
     }

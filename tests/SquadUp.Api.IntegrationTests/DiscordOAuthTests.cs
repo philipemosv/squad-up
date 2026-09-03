@@ -8,8 +8,10 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using SquadUp.Identity.Application;
 using SquadUp.Identity.Infrastructure;
 
 namespace SquadUp.Api.IntegrationTests;
@@ -53,7 +55,7 @@ public sealed class DiscordOAuthTests
     }
 
     [Fact]
-    public async Task ValidCallbackUsesBackchannelWithoutPersistingOrReturningTokens()
+    public async Task ValidCallbackUpsertsExternalLoginWithoutPersistingOrReturningTokens()
     {
         using var backchannel = new DiscordBackchannelHandler();
         await using var application = new DiscordApplication(backchannel);
@@ -97,6 +99,9 @@ public sealed class DiscordOAuthTests
         Assert.DoesNotContain(DiscordUserId, completion.Headers.ToString(), StringComparison.Ordinal);
         Assert.Equal(1, backchannel.TokenRequestCount);
         Assert.Equal(1, backchannel.UserInformationRequestCount);
+        Assert.Equal(1, application.ExternalLogins.UpsertCount);
+        Assert.Equal(DiscordOAuthDefaults.AuthenticationScheme, application.ExternalLogins.LoginProvider);
+        Assert.Equal(DiscordUserId, application.ExternalLogins.ProviderKey);
     }
 
     [Theory]
@@ -168,6 +173,41 @@ public sealed class DiscordOAuthTests
     }
 
     [Fact]
+    public async Task InvalidDiscordUserIdIsRejectedBeforeAccountUpsert()
+    {
+        const string invalidUserId = "not-a-discord-user-id";
+        using var backchannel = new DiscordBackchannelHandler(userId: invalidUserId);
+        await using var application = new DiscordApplication(backchannel);
+        using var client = CreateClient(application);
+        using var login = await client.GetAsync("/auth/discord/login");
+        var location = Assert.IsType<Uri>(login.Headers.Location);
+        var state = Assert.Single(QueryHelpers.ParseQuery(location.Query)["state"])!;
+        var correlation = GetCookie(login, "__Host-SquadUp.Correlation.");
+        using var callbackRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/auth/discord/callback?code={Uri.EscapeDataString(AuthorizationCode)}&state={Uri.EscapeDataString(state)}");
+        callbackRequest.Headers.Add("Cookie", correlation.Pair);
+        using var callback = await client.SendAsync(callbackRequest);
+        var externalCookie = GetCookie(callback, "__Host-SquadUp.External");
+        using var completionRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            DiscordOAuthDefaults.CompletionPath);
+        completionRequest.Headers.Add("Cookie", externalCookie.Pair);
+
+        using var completion = await client.SendAsync(completionRequest);
+        var body = await completion.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.BadRequest, completion.StatusCode);
+        Assert.Contains("discord_external_identity_invalid", body, StringComparison.Ordinal);
+        Assert.DoesNotContain(invalidUserId, body, StringComparison.Ordinal);
+        Assert.Equal(0, application.ExternalLogins.UpsertCount);
+        Assert.Contains(
+            completion.Headers.GetValues("Set-Cookie"),
+            value => value.StartsWith("__Host-SquadUp.External=", StringComparison.Ordinal) &&
+                value.Contains("expires=Thu, 01 Jan 1970", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public async Task InvalidConfigurationStopsStartupWithoutEchoingValues()
     {
         var validSecret = RandomNumberGenerator.GetHexString(32);
@@ -235,9 +275,12 @@ public sealed class DiscordOAuthTests
         {
             this.backchannel = backchannel;
             ClientSecret = RandomNumberGenerator.GetHexString(32);
+            ExternalLogins = new RecordingExternalLoginAccountService();
         }
 
         public string ClientSecret { get; }
+
+        public RecordingExternalLoginAccountService ExternalLogins { get; }
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -249,10 +292,47 @@ public sealed class DiscordOAuthTests
                     ["Discord:ClientId"] = ClientId,
                     ["Discord:ClientSecret"] = ClientSecret
                 }));
-            builder.ConfigureTestServices(services => services.PostConfigure<OAuthOptions>(
-                DiscordOAuthDefaults.AuthenticationScheme,
-                options => options.Backchannel = new HttpClient(backchannel, disposeHandler: false)));
+            builder.ConfigureTestServices(services =>
+            {
+                services.PostConfigure<OAuthOptions>(
+                    DiscordOAuthDefaults.AuthenticationScheme,
+                    options => options.Backchannel = new HttpClient(backchannel, disposeHandler: false));
+                services.RemoveAll<IExternalLoginAccountService>();
+                services.AddSingleton<IExternalLoginAccountService>(ExternalLogins);
+            });
         }
+    }
+
+    private sealed class RecordingExternalLoginAccountService : IExternalLoginAccountService
+    {
+        public int UpsertCount { get; private set; }
+
+        public string? LoginProvider { get; private set; }
+
+        public string? ProviderKey { get; private set; }
+
+        public Task<ExternalLoginUpsertResult> UpsertAsync(
+            string loginProvider,
+            string providerKey,
+            CancellationToken cancellationToken)
+        {
+            UpsertCount++;
+            LoginProvider = loginProvider;
+            ProviderKey = providerKey;
+            return Task.FromResult(new ExternalLoginUpsertResult(Guid.CreateVersion7(), WasCreated: true));
+        }
+
+        public Task<ExternalLoginLinkResult> LinkAsync(
+            Guid userId,
+            string loginProvider,
+            string providerKey,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<ExternalLoginUnlinkResult> UnlinkAsync(
+            Guid userId,
+            string loginProvider,
+            string providerKey,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 
     public enum BackchannelFailure
@@ -265,10 +345,14 @@ public sealed class DiscordOAuthTests
     private sealed class DiscordBackchannelHandler : HttpMessageHandler
     {
         private readonly BackchannelFailure failure;
+        private readonly string userId;
 
-        public DiscordBackchannelHandler(BackchannelFailure failure = BackchannelFailure.None)
+        public DiscordBackchannelHandler(
+            BackchannelFailure failure = BackchannelFailure.None,
+            string userId = DiscordUserId)
         {
             this.failure = failure;
+            this.userId = userId;
             AccessToken = RandomNumberGenerator.GetHexString(32);
         }
 
@@ -317,7 +401,7 @@ public sealed class DiscordOAuthTests
                 }
 
                 return JsonResponse(
-                    $$"""{"id":"{{DiscordUserId}}","username":"synthetic-user"}""");
+                    $$"""{"id":"{{userId}}","username":"synthetic-user"}""");
             }
 
             return new HttpResponseMessage(HttpStatusCode.NotFound);
