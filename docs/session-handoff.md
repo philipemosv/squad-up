@@ -7,8 +7,13 @@ current contents of `plan.md` remain authoritative if this document is stale.
 ## Current state
 
 - Branch: `main`; tracked files are synchronized with `origin/main` after the
-  functional milestone push. Untracked `.claude/` worktrees remain local and
+  task-workflow milestone push. Untracked `.claude/` worktrees remain local and
   were deliberately excluded from commits.
+- Context workflow milestone: `7dd7d8f docs: add context-efficient ticket
+  workflow`. Broad work now uses the repository-local
+  `$squad-up-to-tickets` skill, two to five vertical tickets when splitting is
+  justified, and one fresh session per ticket. The durable guide is
+  [task-slicing.md](development/task-slicing.md).
 - Last functional milestone: `93fa531 feat: implement protected Profile bounded
   slice`.
 - Completed plan item: Fase 2, item 7 — Profile CRUD, player games/ranks, and
@@ -40,23 +45,23 @@ current contents of `plan.md` remain authoritative if this document is stale.
   not triggered because no public bearer client or refresh token is exposed.
   TM-04 remains only partially mitigated until real identifier endpoints load
   current state and invoke the resource policy with their own negative tests.
-- Next task: Fase 2, item 8 — centralized secret redaction and structured audit
-  logs for privileged and profile-mutating actions.
+- Next task: Fase 2, item 8, ticket 1 of 3 — define centralized secret-redaction
+  behavior and prove it with canary/failure-path tests. Business audit events
+  remain out of scope for this first ticket.
 
 ## Next-session prompt
 
-> Continue a Fase 2 do Squad-Up após o commit funcional `93fa531`. Confirme este
-> handoff contra o Git. O item 7 foi concluído com 88 testes, antiforgery em todas
-> as mutações Profile, isolamento HTTP entre jogadores, migrations idempotentes
-> replayadas e container non-root saudável. A regressão da fixture Discord por
-> configuração Profile ausente foi corrigida e testada sem variável ambiente.
-> Implemente o item 8: redação central de segredos e audit logs estruturados para
-> ações privilegiadas e mutações de perfil. Preserve `.claude/` até uma decisão
-> explícita de limpeza.
+> Continue a Fase 2 do Squad-Up após o milestone de workflow `7dd7d8f` e o
+> funcional `93fa531`. Confirme este handoff contra o Git e use
+> `$squad-up-to-tickets`. Implemente apenas o item 8, ticket 1 de 3: defina a
+> redação central de segredos e prove-a com canary values e testes dos caminhos
+> de falha; audit events de Profile e Identity ficam fora deste ticket. Os gates
+> passaram com 88 testes. Preserve `.claude/` até uma decisão explícita de
+> limpeza.
 
 ## Milestone history
 
-| Functional commit | Completed outcome | Verification |
+| Milestone commit | Completed outcome | Verification |
 | --- | --- | --- |
 | `088e87d` | Lobby service containerized with a pinned chiseled, non-root image | Repository gates and container smoke passed |
 | `d180257` | Fase 1 items 6–7: Testcontainers platform fixture, integration smoke, configuration validation, and User Secrets guidance | Repository gates and local platform integration passed |
@@ -66,3 +71,4 @@ current contents of `plan.md` remain authoritative if this document is stale.
 | `90ae366` | Fase 2 item 4: bounded BFF session and asymmetric, short-lived, audience-specific API-to-Lobby JWT boundary | 50 tests, repository gates, and chiseled API/Lobby smokes passed |
 | `715b646` | Fase 2 item 6: canonical claims/roles, administrative policies, delegated-role boundary, and Lobby owner-or-moderator authorization harness | 54 tests, repository gates, idempotent migration SQL, and role-escalation/different-user negatives passed |
 | `93fa531` | Fase 2 item 7: protected Profile slice with profile/game/rank CRUD and provisional Dota 2 catalog ownership | 88 tests, hermetic Discord regression test, antiforgery/ownership negatives, migration replay/model check, and non-root API container smoke passed |
+| `7dd7d8f` | Repository-local `to-tickets` adaptation and durable context-efficient task workflow | Skill validation, diff checks, and all repository gates with 88 tests passed |
