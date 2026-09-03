@@ -7,14 +7,14 @@ current contents of `plan.md` remain authoritative if this document is stale.
 ## Current state
 
 - Branch: `main`; tracked files are synchronized with `origin/main` after the
-  Identity audit milestone push.
+  Discord OAuth CI-contract milestone push.
 - Context workflow milestone: `7dd7d8f docs: add context-efficient ticket
   workflow`. Broad work now uses the repository-local
   `$squad-up-to-tickets` skill, two to five vertical tickets when splitting is
   justified, and one fresh session per ticket. The durable guide is
   [task-slicing.md](development/task-slicing.md).
-- Last functional milestone: `93fa531 feat: implement protected Profile bounded
-  slice`.
+- Last functional milestone: `83f8bfe test: verify Discord OAuth token exchange
+  contract`.
 - Completed plan item: Fase 2, item 7 — Profile CRUD, player games/ranks, and
   the initial Dota 2 catalog. Profile owns the new `profile` PostgreSQL schema
   provisionally under [ADR-005](adr/ADR-005-profile-owned-catalog-seed.md).
@@ -73,17 +73,24 @@ current contents of `plan.md` remain authoritative if this document is stale.
   anonymous logout (401), antiforgery rejection, and allowlisted audit-event
   fields. Locked restore, formatter verification, Release CI build, and the
   complete suite passed — 92 tests, including 76 API integration tests.
-- Next task: Fase 2, item 9 — assess the existing Discord OAuth HTTP test
-  double against the planned CI contract and implement only any missing
-  independently verifiable behavior.
+- Completed plan item: Fase 2, item 9 — the in-memory Discord OAuth HTTP test
+  double now verifies the token request is an authenticated Authorization Code
+  exchange (`grant_type`, client ID/secret, code, and exact redirect URI), then
+  verifies the Bearer request to `/users/@me`. It uses runtime-generated
+  synthetic Restricted values only in memory and makes no network call.
+- Verification: the focused Discord OAuth suite passed 12 tests. Locked
+  restore, formatter verification, Release CI build with zero warnings, and
+  the complete suite passed — 92 tests, including 76 API integration tests.
+- Next task: Fase 3, item 1 — model the Lobby aggregate, value objects, and
+  state transitions as a bounded Domain slice.
 
 ## Next-session prompt
 
-> Continue a Fase 2 do Squad-Up após o milestone `fcbbf6c` de auditoria das
-> ações de segurança de Identity. Confirme este handoff contra o Git e use
-> `$squad-up-to-tickets`. Avalie somente o item 9: se o test double atual do
-> Discord OAuth já provar o contrato de CI, registre a evidência; caso contrário,
-> implemente a menor lacuna verificável. Os gates passaram com 92 testes.
+> Inicie uma sessão nova para a Fase 3 após o milestone `83f8bfe` do contrato
+> de CI de Discord OAuth. Confirme este handoff contra o Git e use
+> `$squad-up-to-tickets` para o item 1: modelar o agregado Lobby, value objects
+> e transições de estado somente no Domain. Os gates passaram com 92 testes
+> (76 de API).
 
 ## Milestone history
 
@@ -101,3 +108,4 @@ current contents of `plan.md` remain authoritative if this document is stale.
 | `2af2551` | Fase 2 item 8, ticket 1: centralized structured-log secret redaction | Repository gates and 89 tests passed; canary and failure-path proof added |
 | `aed5f8e` | Fase 2 item 8, ticket 2: structured audit events for Profile mutations | Repository gates and 90 tests passed; success, validation-failure, correlation, and field-exclusion coverage added |
 | `fcbbf6c` | Fase 2 item 8, ticket 3: structured audit events for Identity security actions | Repository gates and 92 tests passed; anonymous/antiforgery negatives and Restricted-field exclusion coverage added |
+| `83f8bfe` | Fase 2, item 9: Discord OAuth in-memory HTTP double verifies the authenticated authorization-code token request | Repository gates and 92 tests passed; 12 focused OAuth tests passed |
