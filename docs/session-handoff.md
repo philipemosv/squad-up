@@ -8,35 +8,39 @@ current contents of `plan.md` remain authoritative if this document is stale.
 
 - Branch: `main`, clean and synchronized with `origin/main` after the milestone
   push.
-- Last functional milestone: `81ddbdc feat: add Discord OAuth transport`.
-- Completed plan item: Fase 2, item 2 — Discord Authorization Code login with
-  protected `state`, correlation cookie, exact callback path, and only the
-  `identify` scope.
+- Last functional milestone: `c58e7b7 feat: persist Discord external accounts
+  safely`.
+- Completed plan item: Fase 2, item 3 — transactional external-login upsert,
+  explicit link/unlink outcomes, collision rejection, and concurrent orphan
+  prevention.
 - Verification: locked restore, formatter verification, Release CI build, and
-  the complete solution test suite passed. The suite had 27 passing tests,
-  including 13 API integration tests. The chiseled API container smoke passed
+  the complete solution test suite passed. The suite had 35 passing tests,
+  including 21 API integration tests. The chiseled API container smoke passed
   read-only as non-root user 1654.
-- External verification: Discord was not contacted. OAuth tests used the real
-  ASP.NET Core middleware with an in-memory backchannel and runtime-generated
-  synthetic credentials and tokens.
-- Security boundary: the Discord token is neither returned nor persisted;
-  OAuth endpoints and completion redirect are fixed; the short-lived external
-  cookie is removed at completion; remote failures return sanitized Problem
-  Details and emit only `DiscordOAuthCallbackFailed` without remote payload.
-- Known limitation: a successful callback currently proves only the OAuth
-  transport and returns 204 after clearing its temporary ticket. It does not
-  yet create, link, unlink, or authenticate a local Squad-Up account.
-- Next task: Fase 2, item 3 — implement transactional external-login upsert and
-  explicit unlink/account-collision handling, with concurrency and negative
-  tests proportional to those paths.
+- Concurrency verification: the three race tests passed five consecutive runs.
+  The existing `(login_provider, provider_key)` primary key serializes a
+  Discord identity, while local-account row locks serialize link/unlink. No
+  migration or schema contraction was needed.
+- Security boundary: the callback validates the Discord snowflake before the
+  transactional upsert; only the stable Discord ID is stored, never the OAuth
+  token or username. Collisions never merge accounts, and unlink cannot remove
+  the last authentication method.
+- Known limitation: link/unlink are application operations only and are not
+  exposed over HTTP. They require the authenticated, reauthenticated ceremony
+  planned with the browser session boundary. A successful login still returns
+  204 after clearing the temporary external cookie and does not yet establish a
+  Squad-Up browser session.
+- Next task: Fase 2, item 4 — issue the bounded Secure/HttpOnly/SameSite BFF
+  cookie after external login and add asymmetric, short-lived,
+  audience-specific internal JWT issuance and validation.
 
 ## Next-session prompt
 
-> Continue a Fase 2 do Squad-Up a partir do commit funcional 81ddbdc. Leia e
-> confirme `docs/session-handoff.md` contra o Git. O item 2 foi concluído e todos
-> os gates e o smoke chiseled passaram. Implemente o item 3 do plano: upsert
-> transacional de external login e tratamento explícito de unlink/account
-> collision, respeitando o AGENTS.md. Ao concluir, faça commit, push e atualize
+> Continue a Fase 2 do Squad-Up a partir do commit funcional `c58e7b7`. Leia e
+> confirme `docs/session-handoff.md` contra o Git. O item 3 foi concluído; os 35
+> testes, os gates e o smoke chiseled passaram. Implemente o item 4 do plano:
+> cookie BFF limitado e JWT interno assimétrico, curto e audience-specific,
+> respeitando o ADR-003 e o AGENTS.md. Ao concluir, faça commit, push e atualize
 > este handoff conforme as instruções do repositório.
 
 ## Milestone history
@@ -47,3 +51,4 @@ current contents of `plan.md` remain authoritative if this document is stale.
 | `d180257` | Fase 1 items 6–7: Testcontainers platform fixture, integration smoke, configuration validation, and User Secrets guidance | Repository gates and local platform integration passed |
 | `a81d2aa` | Fase 2 item 1: ASP.NET Core Identity persistence baseline and expand-only PostgreSQL migration | 20 tests, migration checks, and chiseled API smoke passed |
 | `81ddbdc` | Fase 2 item 2: Discord OAuth transport with state/correlation and minimum scope | 27 tests, repository gates, sanitized-log check, and chiseled API smoke passed |
+| `c58e7b7` | Fase 2 item 3: transactional external-login upsert with explicit collision-safe link/unlink operations | 35 tests, repeated concurrency tests, repository gates, and chiseled API smoke passed |
