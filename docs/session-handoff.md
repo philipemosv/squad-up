@@ -8,43 +8,48 @@ current contents of `plan.md` remain authoritative if this document is stale.
 
 - Branch: `main`, clean and synchronized with `origin/main` after the milestone
   push.
-- Last functional milestone: `90ae366 feat: establish bounded authentication
-  boundaries`.
-- Completed plan item: Fase 2, item 4 — bounded BFF cookie plus asymmetric,
-  short-lived, audience-specific internal JWT issuance and Lobby validation.
+- Last functional milestone: `715b646 feat: enforce role and resource
+  authorization`.
+- Completed plan item: Fase 2, item 6 — canonical claims and roles, API
+  administrative policies, and Lobby resource-based owner-or-moderator
+  authorization harness.
 - Verification: locked restore, formatter verification, Release CI build, and
-  the complete solution test suite passed. The suite has 50 passing tests,
-  including 36 API integration tests. Both chiseled container smokes passed
-  read-only as non-root user 1654.
-- Browser boundary: successful Discord completion now issues only a host-only,
-  Secure, HttpOnly, SameSite=Lax session cookie with a 30-minute absolute,
-  non-sliding lifetime. Logout requires explicit antiforgery and API failures
-  return status codes rather than login redirects. A configurable shared Data
-  Protection key-ring path supports multiple API replicas.
-- Service boundary: API emits only RS256 two-minute tokens for the configured
-  Lobby audience and allowlisted scopes, with explicit workload/delegated-user
-  identity. Lobby validates algorithm, signature, named public key, issuer,
-  audience, lifetime/maximum lifetime, client, actor kind, `sub`, `jti`, and
-  scope. Additive public-key configuration proves a rotation window; Lobby
-  rejects private PEM configuration.
+  the complete solution test suite passed. The suite has 54 passing tests,
+  including 40 API integration tests. Focused authorization tests and repeated
+  execution of both idempotent Identity SQL artifacts passed. Container smokes
+  were not rerun because this milestone did not change container packaging.
+- Identity boundary: `sub`, `discord_user_id`, `role`, and `scope` have explicit
+  vocabulary. `Player`, `Moderator`, and `Admin` are seeded by an additive
+  migration; existing users are backfilled idempotently and new Discord-backed
+  accounts receive `Player` in the account-creation transaction. BFF tickets
+  take roles only from the local Identity store and ignore provider-supplied
+  role fields.
+- Authorization boundary: API policies enforce the explicit
+  Moderator/Admin hierarchy. Internal tokens carry allowlisted roles only for
+  delegated users; workload identities and unknown roles are rejected. Lobby's
+  `lobby.owner-or-moderator` policy requires `lobby.write` and current resource
+  ownership or an allowlisted Moderator/Admin role. HTTP tests prove owner
+  access, different-user denial, and role-escalation denial.
 - Known limitations: server-side browser-session revocation and a JWKS endpoint
   are not implemented; production must provide shared protected Data Protection
   storage and approved signing-key storage. The API-to-Lobby typed client will
   consume the issuer in Fase 3, item 8. Fase 2 item 5 remains conditional and is
   not triggered because no public bearer client or refresh token is exposed.
-- Next task: Fase 2, item 6 — add claims, roles, policies, and a resource-based
-  authorization test harness, including role-escalation and different-user
-  negative tests.
+  TM-04 remains only partially mitigated until real identifier endpoints load
+  current state and invoke the resource policy with their own negative tests.
+- Next task: Fase 2, item 7 — implement the Profile bounded slice for profile,
+  games, ranks, and the initial Dota 2 catalog, with explicit DTO allowlists,
+  ownership checks, negative authorization tests, and migration evidence.
 
 ## Next-session prompt
 
-> Continue a Fase 2 do Squad-Up a partir do commit funcional `90ae366`. Leia e
-> confirme `docs/session-handoff.md` contra o Git. O item 4 foi concluído; os 50
-> testes, os gates e os smokes chiseled de API/Lobby passaram. O item 5 é
-> condicional e não se aplica enquanto nenhum cliente bearer público for
-> exposto. Implemente o item 6: claims, roles, policies e harness de autorização
-> baseada em recurso, incluindo testes negativos de role escalation e acesso
-> por outro usuário. Ao concluir, faça commit, push e atualize este handoff.
+> Continue a Fase 2 do Squad-Up a partir do commit funcional `715b646`. Leia e
+> confirme `docs/session-handoff.md` contra o Git. O item 6 foi concluído; os 54
+> testes e todos os gates passaram, incluindo SQL idempotente e negativos de
+> role escalation/outro usuário. O item 5 continua condicional e não se aplica.
+> Implemente o item 7: CRUD de perfil/jogos/ranks e catálogo inicial de Dota 2,
+> preservando DTOs explícitos, ownership e fronteiras de dados. Ao concluir,
+> faça commit, push e atualize este handoff.
 
 ## Milestone history
 
@@ -56,3 +61,4 @@ current contents of `plan.md` remain authoritative if this document is stale.
 | `81ddbdc` | Fase 2 item 2: Discord OAuth transport with state/correlation and minimum scope | 27 tests, repository gates, sanitized-log check, and chiseled API smoke passed |
 | `c58e7b7` | Fase 2 item 3: transactional external-login upsert with explicit collision-safe link/unlink operations | 35 tests, repeated concurrency tests, repository gates, and chiseled API smoke passed |
 | `90ae366` | Fase 2 item 4: bounded BFF session and asymmetric, short-lived, audience-specific API-to-Lobby JWT boundary | 50 tests, repository gates, and chiseled API/Lobby smokes passed |
+| `715b646` | Fase 2 item 6: canonical claims/roles, administrative policies, delegated-role boundary, and Lobby owner-or-moderator authorization harness | 54 tests, repository gates, idempotent migration SQL, and role-escalation/different-user negatives passed |
