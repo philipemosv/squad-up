@@ -34,7 +34,7 @@ anonymous.
 
 | Data | Class | System of record / owner | Allowed secondary use | Prohibited use |
 | --- | --- | --- | --- | --- |
-| Game and rank catalog | Public | Lobby | API responses and cache | Client-controlled rank ordinal or verification state |
+| Game and rank catalog | Public | Identity/Profile (provisional; see [ADR-005](../adr/ADR-005-profile-owned-catalog-seed.md)) | API responses and cache | Client-controlled rank ordinal or verification state |
 | Local user ID | Confidential | Identity/Profile | Audience-limited internal JWT subject, lobby ownership, audit correlation | Public metric label or unrestricted export |
 | Discord user ID | Confidential | Identity/Profile | Minimum lobby participant snapshot and Discord provisioning contract when required | Authorization by itself, public logs, analytics label |
 | Display name / nickname | Confidential by default | Identity/Profile | User-approved profile response and minimum match participant snapshot | Treating it as a stable identity or logging full payloads |

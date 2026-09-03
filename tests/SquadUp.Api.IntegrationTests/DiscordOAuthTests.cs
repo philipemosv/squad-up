@@ -394,6 +394,8 @@ public sealed class DiscordOAuthTests
                 {
                     ["ConnectionStrings:IdentityDatabase"] =
                         "Host=127.0.0.1;Port=1;Database=unavailable;Timeout=1",
+                    ["ConnectionStrings:ProfileDatabase"] =
+                        "Host=127.0.0.1;Port=1;Database=unavailable;Timeout=1",
                     ["Discord:ClientId"] = ClientId,
                     ["Discord:ClientSecret"] = ClientSecret,
                     ["InternalTokens:Issuer"] = "https://api.squad-up.test",
