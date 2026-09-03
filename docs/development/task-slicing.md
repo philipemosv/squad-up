@@ -67,6 +67,9 @@ HTTP result.
 
 ## Context budget
 
+- For an atomic ticket, begin with the handoff and the affected code. Read an
+  ADR, threat-model entry, plan section, or skill only when the ticket's
+  boundary requires it; use the heading or exact range, never a broad dump.
 - Prefer `rg`, narrow file ranges, focused diffs, and test filters while
   investigating.
 - Exclude agent worktrees, `bin/`, `obj/`, generated outputs, and unrelated user
