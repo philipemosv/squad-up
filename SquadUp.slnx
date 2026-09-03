@@ -13,6 +13,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/SquadUp.ArchitectureTests/SquadUp.ArchitectureTests.csproj" />
     <Project Path="tests/SquadUp.Contracts.Tests/SquadUp.Contracts.Tests.csproj" />
+    <Project Path="tests/SquadUp.IntegrationTests/SquadUp.IntegrationTests.csproj" />
     <Project Path="tests/SquadUp.ServiceDefaults.Tests/SquadUp.ServiceDefaults.Tests.csproj" />
   </Folder>
 </Solution>

@@ -79,6 +79,9 @@ dotnet run --project src/Lobby/SquadUp.LobbyService.Api
 
 Then inspect traces at <http://localhost:16686>.
 
+Lobby host configuration validation and safe local secret handling are
+documented in [Configuration and local secrets](configuration-and-secrets.md).
+
 ## Lobby container
 
 The Lobby host uses a multi-stage build and the official .NET 10 Ubuntu

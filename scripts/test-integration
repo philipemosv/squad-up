@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly project="tests/SquadUp.IntegrationTests/SquadUp.IntegrationTests.csproj"
+
+dotnet restore "${project}" --locked-mode
+dotnet test "${project}" --configuration Release --no-restore

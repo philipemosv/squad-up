@@ -68,7 +68,9 @@ or a manually edited `.env` with missing values. `./scripts/dev-up` reports the
 failing service; inspect that service's logs without pasting `.env` contents.
 
 Tests will use isolated Testcontainers rather than depending on the persistent
-state in this developer Compose stack.
+state in this developer Compose stack. See
+[Integration tests](integration-tests.md) for the fixture, smoke coverage, and
+test command.
 
 ## Optional profiles
 

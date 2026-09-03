@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 
 namespace SquadUp.ServiceDefaults.Tests;
 
@@ -31,6 +33,54 @@ public sealed class LobbyServiceDefaultsTests : IClassFixture<WebApplicationFact
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("Healthy", document!.RootElement.GetProperty("status").GetString());
         Assert.False(document.RootElement.ToString().Contains("exception", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task RootEndpointUsesValidatedLobbyServiceName()
+    {
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync("/");
+        var document = await response.Content.ReadFromJsonAsync<JsonDocument>();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("SquadUp.LobbyService", document!.RootElement.GetProperty("service").GetString());
+    }
+
+    [Fact]
+    public void InvalidLobbyServiceNameStopsHostStartup()
+    {
+        using var invalidFactory = new WebApplicationFactory<Program>()
+            .WithWebHostBuilder(builder =>
+            {
+                builder.UseEnvironment("Testing");
+                builder.ConfigureAppConfiguration((_, configuration) =>
+                    configuration.AddInMemoryCollection(new Dictionary<string, string?>
+                    {
+                        ["Lobby:ServiceName"] = "invalid service name"
+                    }));
+            });
+
+        var exception = Assert.Throws<OptionsValidationException>(() => invalidFactory.CreateClient());
+
+        Assert.Contains("Lobby:ServiceName", exception.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("invalid service name", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void InvalidOtlpEndpointIsRejectedWithoutEchoingItsValue()
+    {
+        const string invalidEndpoint = "ftp://collector.internal";
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+        {
+            EnvironmentName = "Testing"
+        });
+        builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"] = invalidEndpoint;
+
+        var exception = Assert.Throws<InvalidOperationException>(builder.AddSquadUpServiceDefaults);
+
+        Assert.Contains("OTEL_EXPORTER_OTLP_ENDPOINT", exception.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(invalidEndpoint, exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]
