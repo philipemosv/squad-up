@@ -8,8 +8,8 @@ execution state; `plan.md` remains authoritative for architectural decisions.
 ## Current state
 
 - Branch: `main`; functional changes are synchronized with `origin/main` at
-  `a306e86` (Lobby join/leave CQRS); this document is the separate handoff
-  record at `54732c8` for that milestone.
+  `c303021` (Lobby cancellation CQRS). This document is the separate handoff
+  record for that milestone.
 - Context workflow milestone: `7dd7d8f docs: add context-efficient ticket
   workflow`. Broad work now uses the repository-local
   `$squad-up-to-tickets` skill, two to five vertical tickets when splitting is
@@ -19,7 +19,7 @@ execution state; `plan.md` remains authoritative for architectural decisions.
   entry point for a ticket's status, dependencies, minimum reading set, and
   evidence. Do not preload `plan.md`; open only a catalog-cited anchor when it
   is required for a design decision.
-- Last functional milestone: `a306e86 feat: add lobby membership commands`.
+- Last functional milestone: `c303021 feat: add lobby cancellation command`.
 - Completed plan item: Fase 2, item 7 — Profile CRUD, player games/ranks, and
   the initial Dota 2 catalog. Profile owns the new `profile` PostgreSQL schema
   provisionally under [ADR-005](adr/ADR-005-profile-owned-catalog-seed.md).
@@ -146,9 +146,23 @@ execution state; `plan.md` remains authoritative for architectural decisions.
   broker/outbox, cache, or external side effect was added. The member snapshot
   remains Confidential Lobby-owned data and does not reach logs, cache, or a
   message in this ticket.
-- Next task: Fase 3, item 3, ticket 3 of 3 — add the remaining cancellation
-  CQRS boundary using the existing owner-or-moderator authorization harness;
-  keep endpoints, HTTP idempotency, and broker/outbox behavior out of scope.
+- Completed plan item: Fase 3, item 3, ticket 3 of 3 — Lobby cancellation
+  CQRS. The command loads the current Lobby before authorizing the authenticated
+  actor through the owner-or-moderator policy, then applies `Cancel`. It retries
+  one `xmin` conflict by reloading and re-authorizing, returning a deterministic
+  domain rejection when the concurrent winner already cancelled the Lobby.
+- Verification: focused Lobby persistence/CQRS suite passed — 13 tests,
+  including owner, different-player, moderator, terminal-state, and deterministic
+  concurrent-cancellation coverage. Locked restore, formatter verification,
+  Release CI build with zero warnings, and the complete suite passed — 118 tests,
+  including 76 API integration tests.
+- Security and limits: a different player cannot cancel a Lobby they do not own;
+  Moderator/Admin may cancel using the current owner resource. No endpoint,
+  HTTP idempotency, broker/outbox, audit event, cache, or external side effect
+  was added. Caller claims remain only at the internal authenticated boundary.
+- Next task: Fase 3, item 4 (`F3-04`) — expose create/search/join/leave/cancel
+  endpoints with resource authorization, explicit DTO binding, RFC 9457 errors,
+  and negative HTTP coverage; keep HTTP idempotency for `F3-05`.
 - CI repair: the Lobby container smoke now supplies an ephemeral, credential-free
   valid connection string solely for startup validation and probes `/health/live`.
   It no longer claims database readiness when no PostgreSQL container exists;
@@ -160,12 +174,12 @@ execution state; `plan.md` remains authoritative for architectural decisions.
 
 ## Next-session prompt
 
-> Inicie uma sessão nova para a Fase 3 após o milestone `a306e86`, que adiciona
-> comandos CQRS de join/leave com retry limitado de concorrência. Confirme este
-> handoff contra o Git e implemente somente o ticket 3 do item 3: o comando de
-> cancelamento usando o harness owner-or-moderator existente. Os gates passaram
-> com 116 testes (76 de API); não adicione endpoints, idempotência HTTP ou
-> broker/outbox.
+> Inicie uma sessão nova após o milestone `c303021`, que conclui o CQRS sem
+> broker do Lobby com o cancelamento autorizado e retry limitado de concorrência.
+> Confirme este handoff contra o Git e implemente somente `F3-04`: endpoints de
+> create/search/join/leave/cancel com autorização baseada em recurso, DTOs
+> explícitos, RFC 9457 e negativos HTTP. Os gates passaram com 118 testes (76 de
+> API); mantenha a idempotência HTTP em `F3-05` e não adicione broker/outbox.
 
 ## Milestone history
 
@@ -189,3 +203,4 @@ execution state; `plan.md` remains authoritative for architectural decisions.
 | `354daf5` | Fase 3, item 3, ticket 1: Lobby CQRS create and recruiting-search services | Repository gates and 111 tests passed; 9 focused Lobby persistence/CQRS tests passed |
 | `e3bf4e8` | CI repair: Lobby container smoke validates startup liveness without a database | Container smoke plus repository gates and 111 tests passed |
 | `a306e86` | Fase 3, item 3, ticket 2: Lobby join/leave CQRS with bounded optimistic-concurrency retry | Repository gates and 116 tests passed; deterministic PostgreSQL stale-write retry proof added |
+| `c303021` | Fase 3, item 3, ticket 3: owner-or-moderator Lobby cancellation CQRS with bounded optimistic-concurrency retry | Repository gates and 118 tests passed; authorization and concurrent-cancellation proof added |
