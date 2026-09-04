@@ -111,7 +111,14 @@ jogo normalizado e uma projeção `AsNoTracking` sem owner ou membros. Cursor,
 tamanho e filtro inválidos retornam RFC 9457 com códigos estáveis; as provas
 cobrem páginas sem duplicação, exclusão de estados terminais, ausência de
 tracking, autenticação e minimização de resposta.
-### F3-07 — corrida de 50 joins/overbooking — Pendente
+### F3-07 — corrida de 50 joins/overbooking — Concluído
+
+A prova PostgreSQL dispara 50 comandos `Join` independentes contra um Lobby de
+cinco vagas. Exatamente cinco persistem; as outras 45 reavaliam o estado `Full`
+e recebem rejeição determinística. O retry de `xmin` é limitado pela capacidade
+máxima do aggregate e permite observar cada preenchimento possível mais a
+leitura terminal. Um interceptor de teste registra somente `LobbyCompleted`
+após `SaveChanges` bem-sucedido e prova um único fato local de conclusão.
 ### F3-08 — typed client API→Lobby/JWT/timeout/circuit breaker — Pendente
 ### F3-09 — degradação graciosa interna — Pendente
 

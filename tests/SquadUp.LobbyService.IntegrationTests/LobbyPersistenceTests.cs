@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -449,6 +450,47 @@ public sealed class LobbyPersistenceTests : IClassFixture<LobbyDatabaseFixture>
         Assert.Equal(3, interceptor.MembershipSaveCount);
     }
 
+    [Fact]
+    public async Task FiftyConcurrentJoinsFillOnlyFiveSeatsAndPersistOneCompletionFact()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        var interceptor = new RecordPersistedCompletionFactsInterceptor();
+        await using var services = CreateServices(interceptor);
+        Guid lobbyId;
+        await using (var setupScope = services.CreateAsyncScope())
+        {
+            var context = setupScope.ServiceProvider.GetRequiredService<LobbyDbContext>();
+            var commands = setupScope.ServiceProvider.GetRequiredService<ILobbyCommandService>();
+            await context.Database.MigrateAsync(timeout.Token);
+            var created = await commands.CreateAsync(
+                Guid.NewGuid(),
+                new CreateLobbyRequest(5, "dota2", 1, null),
+                timeout.Token);
+            lobbyId = Assert.IsType<Guid>(created.LobbyId);
+        }
+
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var joins = Enumerable.Range(0, 50)
+            .Select(_ => JoinInSeparateScopeAsync(services, lobbyId, start.Task, timeout.Token))
+            .ToArray();
+        start.SetResult();
+
+        var results = await Task.WhenAll(joins);
+
+        Assert.Equal(5, results.Count(result => result.Outcome == LobbyMembershipOutcome.Success));
+        Assert.Equal(45, results.Count(result => result.Outcome == LobbyMembershipOutcome.Rejected));
+        await using var verifyScope = services.CreateAsyncScope();
+        var verifyContext = verifyScope.ServiceProvider.GetRequiredService<LobbyDbContext>();
+        var lobby = await verifyContext.Lobbies
+            .Include("members")
+            .SingleAsync(candidate => candidate.Id == lobbyId, timeout.Token);
+        Assert.Equal(LobbyStatus.Full, lobby.Status);
+        Assert.Equal(5, lobby.MembersCount);
+        Assert.Equal(5, lobby.Members.Count);
+        var completion = Assert.Single(interceptor.PersistedCompletionFacts);
+        Assert.Equal(lobbyId, completion.LobbyId);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("not-a-connection-string")]
@@ -580,6 +622,44 @@ public sealed class LobbyPersistenceTests : IClassFixture<LobbyDatabaseFixture>
             }
 
             return result;
+        }
+    }
+
+    private sealed class RecordPersistedCompletionFactsInterceptor : SaveChangesInterceptor
+    {
+        private readonly ConcurrentQueue<LobbyCompleted> persistedCompletionFacts = [];
+
+        public IReadOnlyCollection<LobbyCompleted> PersistedCompletionFacts => persistedCompletionFacts;
+
+        public override int SavedChanges(SaveChangesCompletedEventData eventData, int result)
+        {
+            RecordPersistedCompletionFacts(eventData.Context);
+            return result;
+        }
+
+        public override ValueTask<int> SavedChangesAsync(
+            SaveChangesCompletedEventData eventData,
+            int result,
+            CancellationToken cancellationToken = default)
+        {
+            RecordPersistedCompletionFacts(eventData.Context);
+            return ValueTask.FromResult(result);
+        }
+
+        private void RecordPersistedCompletionFacts(DbContext? context)
+        {
+            if (context is null)
+            {
+                return;
+            }
+
+            foreach (var lobby in context.ChangeTracker.Entries<Lobby>().Select(entry => entry.Entity))
+            {
+                foreach (var completion in lobby.CompletedEvents)
+                {
+                    persistedCompletionFacts.Enqueue(completion);
+                }
+            }
         }
     }
 

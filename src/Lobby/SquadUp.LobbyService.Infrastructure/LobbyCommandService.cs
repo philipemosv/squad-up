@@ -199,8 +199,7 @@ internal sealed class LobbyCommandService(
             return LobbyMembershipResult.Failed(LobbyMembershipOutcome.ValidationFailed, "Lobby id is required.");
         }
 
-        const int maximumAttempts = 2;
-        for (var attempt = 0; attempt < maximumAttempts; attempt++)
+        for (var attempt = 0; attempt <= Lobby.MaximumCapacity; attempt++)
         {
             var lobby = await context.Lobbies
                 .Include("members")
@@ -224,7 +223,7 @@ internal sealed class LobbyCommandService(
                 await context.SaveChangesAsync(cancellationToken);
                 return LobbyMembershipResult.Success();
             }
-            catch (DbUpdateConcurrencyException) when (attempt < maximumAttempts - 1)
+            catch (DbUpdateConcurrencyException) when (attempt < lobby.Capacity)
             {
                 context.ChangeTracker.Clear();
             }
