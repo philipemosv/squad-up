@@ -7,7 +7,7 @@ current contents of `plan.md` remain authoritative if this document is stale.
 ## Current state
 
 - Branch: `main`; functional changes are synchronized with `origin/main` at
-  `354daf5` (Lobby CQRS creation/search); this document is the separate
+  `e3bf4e8` (Lobby container-smoke repair); this document is the separate
   handoff record for that milestone.
 - Context workflow milestone: `7dd7d8f docs: add context-efficient ticket
   workflow`. Broad work now uses the repository-local
@@ -127,10 +127,19 @@ current contents of `plan.md` remain authoritative if this document is stale.
 - Next task: Fase 3, item 3, ticket 2 of 3 — add join/leave CQRS commands with
   bounded optimistic-concurrency re-evaluation and focused PostgreSQL conflict
   tests; do not add endpoints, idempotency ledger, or broker/outbox behavior.
+- CI repair: the Lobby container smoke now supplies an ephemeral, credential-free
+  valid connection string solely for startup validation and probes `/health/live`.
+  It no longer claims database readiness when no PostgreSQL container exists;
+  `/health/ready` retains its tagged database check for real deployments.
+- Verification: the corrected `./scripts/test-lobby-container` passed with the
+  chiseled non-root user 1654 and read-only filesystem. Locked restore,
+  formatter verification, Release CI build with zero warnings, and the complete
+  suite passed — 111 tests, including 76 API integration tests.
 
 ## Next-session prompt
 
-> Inicie uma sessão nova para a Fase 3 após o milestone `354daf5` de CQRS para
+> Inicie uma sessão nova para a Fase 3 após o milestone `e3bf4e8`, que corrige
+> o smoke CI do container Lobby, e `354daf5` de CQRS para
 > criação e busca de Lobby. Confirme este handoff contra o Git e implemente
 > somente o ticket 2 do item 3: comandos de join/leave com reavaliação limitada
 > de conflito otimista e testes PostgreSQL focados. Os gates passaram com 111
@@ -156,3 +165,4 @@ current contents of `plan.md` remain authoritative if this document is stale.
 | `2674296` | Fase 3, item 1: Lobby aggregate, rank value objects, participant snapshots, and explicit state transitions | Repository gates and 103 tests passed; 11 focused Domain tests passed |
 | `1badbcd` | Fase 3, item 2: Lobby EF persistence, local catalog, constraints, migration SQL, and `xmin` | Repository gates and 110 tests passed; 7 focused Lobby persistence tests passed |
 | `354daf5` | Fase 3, item 3, ticket 1: Lobby CQRS create and recruiting-search services | Repository gates and 111 tests passed; 9 focused Lobby persistence/CQRS tests passed |
+| `e3bf4e8` | CI repair: Lobby container smoke validates startup liveness without a database | Container smoke plus repository gates and 111 tests passed |
