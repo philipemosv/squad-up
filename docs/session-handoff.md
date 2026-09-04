@@ -124,9 +124,26 @@ current contents of `plan.md` remain authoritative if this document is stale.
   the future authenticated boundary. Search intentionally excludes owner and
   participant data. HTTP endpoints, resource authorization, pagination,
   idempotency, and broker/outbox handling remain out of scope.
-- Next task: Fase 3, item 3, ticket 2 of 3 — add join/leave CQRS commands with
-  bounded optimistic-concurrency re-evaluation and focused PostgreSQL conflict
-  tests; do not add endpoints, idempotency ledger, or broker/outbox behavior.
+- Completed plan item: Fase 3, item 3, ticket 2 of 3 — Join/leave CQRS
+  commands. The caller identity is a separate argument from the minimized
+  participant snapshot; only `Recruiting` lobbies permit leave, preserving the
+  irreversible local completion fact when a lobby becomes `Full`. Each
+  membership mutation retries one `xmin` conflict by reloading and reapplying
+  the domain rule, then returns a deterministic concurrency conflict if it is
+  still stale.
+- Verification: focused Lobby Domain tests passed (13), focused PostgreSQL
+  persistence/CQRS tests passed (11), and locked restore, formatter
+  verification, Release CI build with zero warnings, and the complete suite
+  passed — 116 tests, including 76 API integration tests. A deterministic
+  PostgreSQL test synchronizes the two stale saves and proves the third save is
+  the re-evaluated retry; the final lobby is exactly full with two members.
+- Security and limits: no endpoint, resource authorization, HTTP idempotency,
+  broker/outbox, cache, or external side effect was added. The member snapshot
+  remains Confidential Lobby-owned data and does not reach logs, cache, or a
+  message in this ticket.
+- Next task: Fase 3, item 3, ticket 3 of 3 — add the remaining cancellation
+  CQRS boundary using the existing owner-or-moderator authorization harness;
+  keep endpoints, HTTP idempotency, and broker/outbox behavior out of scope.
 - CI repair: the Lobby container smoke now supplies an ephemeral, credential-free
   valid connection string solely for startup validation and probes `/health/live`.
   It no longer claims database readiness when no PostgreSQL container exists;
@@ -138,12 +155,12 @@ current contents of `plan.md` remain authoritative if this document is stale.
 
 ## Next-session prompt
 
-> Inicie uma sessão nova para a Fase 3 após o milestone `e3bf4e8`, que corrige
-> o smoke CI do container Lobby, e `354daf5` de CQRS para
-> criação e busca de Lobby. Confirme este handoff contra o Git e implemente
-> somente o ticket 2 do item 3: comandos de join/leave com reavaliação limitada
-> de conflito otimista e testes PostgreSQL focados. Os gates passaram com 111
-> testes (76 de API); não adicione endpoints, idempotência HTTP ou broker.
+> Inicie uma sessão nova para a Fase 3 após o milestone `a306e86`, que adiciona
+> comandos CQRS de join/leave com retry limitado de concorrência. Confirme este
+> handoff contra o Git e implemente somente o ticket 3 do item 3: o comando de
+> cancelamento usando o harness owner-or-moderator existente. Os gates passaram
+> com 116 testes (76 de API); não adicione endpoints, idempotência HTTP ou
+> broker/outbox.
 
 ## Milestone history
 
@@ -166,3 +183,4 @@ current contents of `plan.md` remain authoritative if this document is stale.
 | `1badbcd` | Fase 3, item 2: Lobby EF persistence, local catalog, constraints, migration SQL, and `xmin` | Repository gates and 110 tests passed; 7 focused Lobby persistence tests passed |
 | `354daf5` | Fase 3, item 3, ticket 1: Lobby CQRS create and recruiting-search services | Repository gates and 111 tests passed; 9 focused Lobby persistence/CQRS tests passed |
 | `e3bf4e8` | CI repair: Lobby container smoke validates startup liveness without a database | Container smoke plus repository gates and 111 tests passed |
+| `a306e86` | Fase 3, item 3, ticket 2: Lobby join/leave CQRS with bounded optimistic-concurrency retry | Repository gates and 116 tests passed; deterministic PostgreSQL stale-write retry proof added |
