@@ -20,6 +20,7 @@ app.UseAuthorization();
 
 app.MapGet("/", (IOptions<LobbyHostOptions> options) =>
     Results.Ok(new { Service = options.Value.ServiceName }));
+app.MapLobby();
 app.MapSquadUpHealthEndpoints();
 
 app.Run();

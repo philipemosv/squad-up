@@ -85,7 +85,15 @@ owner-or-moderator sobre o estado atual e retry limitado de `xmin`; os testes
 provam negação a outro jogador, autorização de moderador e reavaliação após
 uma corrida. Endpoints, idempotência HTTP, broker e outbox continuam excluídos.
 
-### F3-04 — endpoints create/search/join/leave/cancel — Pendente
+### F3-04 — endpoints create/search/join/leave/cancel — Concluído
+
+O host Lobby expõe criação, busca, entrada, saída e cancelamento sobre os
+serviços CQRS existentes. Somente um JWT `delegated_user` com o escopo adequado
+pode agir como jogador; owner e player vêm sempre de `sub`, e cancelamento
+recarrega o recurso antes da política owner-or-moderator. Os DTOs HTTP
+allowlistam campos de comando, as falhas usam RFC 9457 com códigos estáveis, e
+os testes HTTP cobrem 401, token de workload, sobrepostagem e IDOR entre dois
+jogadores. Idempotência HTTP permanece em F3-05; não há broker/outbox.
 ### F3-05 — ledger HTTP Idempotency-Key — Pendente
 ### F3-06 — keyset pagination e projections — Pendente
 ### F3-07 — corrida de 50 joins/overbooking — Pendente

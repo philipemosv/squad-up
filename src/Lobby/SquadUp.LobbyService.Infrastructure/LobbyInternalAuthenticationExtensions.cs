@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -85,7 +86,13 @@ public static class LobbyInternalAuthenticationExtensions
         };
         bearer.Events = new JwtBearerEvents
         {
-            OnTokenValidated = context => ValidateRequiredClaims(context, options)
+            OnTokenValidated = context => ValidateRequiredClaims(context, options),
+            OnChallenge = context =>
+            {
+                context.HandleResponse();
+                return WriteAuthenticationProblemAsync(context.HttpContext);
+            },
+            OnForbidden = context => WriteAuthorizationProblemAsync(context.HttpContext)
         };
     }
 
@@ -142,6 +149,23 @@ public static class LobbyInternalAuthenticationExtensions
 
         return Task.CompletedTask;
     }
+
+    private static Task WriteAuthenticationProblemAsync(HttpContext context)
+    {
+        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        return Results.Problem(
+            statusCode: StatusCodes.Status401Unauthorized,
+            title: "Authentication is required.",
+            extensions: new Dictionary<string, object?> { ["code"] = "authentication_required" })
+            .ExecuteAsync(context);
+    }
+
+    private static Task WriteAuthorizationProblemAsync(HttpContext context) =>
+        Results.Problem(
+            statusCode: StatusCodes.Status403Forbidden,
+            title: "The caller is not authorized for this lobby operation.",
+            extensions: new Dictionary<string, object?> { ["code"] = "authorization_forbidden" })
+            .ExecuteAsync(context);
 
     private static bool TryGetUtcDateTime(long unixTimeSeconds, out DateTime value)
     {
