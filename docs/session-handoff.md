@@ -8,8 +8,8 @@ execution state; `plan.md` remains authoritative for architectural decisions.
 ## Current state
 
 - Branch: `main`; functional changes are synchronized with `origin/main` at
-  `9f804b7` (Lobby HTTP idempotency ledger). This document is the separate
-  handoff record for that milestone.
+  `4b501eb` (Lobby keyset pagination and minimized search projections). This
+  document is the separate handoff record for that milestone.
 - Context workflow milestone: `7dd7d8f docs: add context-efficient ticket
   workflow`. Broad work now uses the repository-local
   `$squad-up-to-tickets` skill, two to five vertical tickets when splitting is
@@ -195,8 +195,27 @@ execution state; `plan.md` remains authoritative for architectural decisions.
 - Retention limitation: expired rows are rejected and opportunistically purged
   by later idempotent commands; a scheduled no-traffic purge remains out of
   scope until operational retention requirements are defined.
-- Next task: Fase 3, item 6 (`F3-06`) — keyset pagination and minimized read
-  projections for Lobby search.
+- Completed plan item: Fase 3, item 6 (`F3-06`) — keyset pagination and
+  minimized read projections for Lobby search. `GET /lobbies` now accepts an
+  optional normalized game filter, a URL-safe continuation cursor, and a page
+  size of 1–50 (20 by default). The query remains `AsNoTracking`, returns only
+  Recruiting lobbies, gets one extra row to establish `nextCursor`, and never
+  returns owner or member snapshots.
+- HTTP failures: malformed cursor, invalid page size, and invalid game ID
+  return RFC 9457 Problem Details with stable codes; anonymous search remains
+  rejected by the delegated internal JWT policy.
+- Verification: the focused Lobby endpoint/persistence suite passed — 18 tests
+  covering keyset continuation, normalization, terminal-state exclusion,
+  response minimization, no EF tracking, anonymous rejection, and invalid
+  cursor/page-size failures. Locked restore, formatter verification, Release
+  CI build with zero warnings, and the complete suite passed — 123 tests,
+  including 76 API integration tests.
+- Limits: cursor position is intentionally not a global snapshot; lobbies
+  created or changing status between pages follow normal keyset semantics.
+  Caching, broker/outbox, member pagination, and API-to-Lobby typed-client work
+  remain out of scope.
+- Next task: Fase 3, item 7 (`F3-07`) — a 50-way concurrent join proof that
+  demonstrates no overbooking and exactly one local completion fact.
 - CI repair: the Lobby container smoke now supplies an ephemeral, credential-free
   valid connection string solely for startup validation and probes `/health/live`.
   It no longer claims database readiness when no PostgreSQL container exists;
@@ -208,11 +227,12 @@ execution state; `plan.md` remains authoritative for architectural decisions.
 
 ## Next-session prompt
 
-> Inicie uma sessão nova após o milestone `9f804b7`, que conclui `F3-05` com o
-> ledger HTTP de idempotência para criação e join de Lobby. Confirme este
-> handoff contra o Git e implemente somente `F3-06`: keyset pagination e
-> projeções mínimas para busca. Os gates passaram com 122 testes (76 de API);
-> não adicione broker/outbox, cache ou typed client.
+> Inicie uma sessão nova após o milestone `4b501eb`, que conclui `F3-06` com
+> paginação keyset e projeções mínimas para busca de Lobby. Confirme este
+> handoff contra o Git e implemente somente `F3-07`: prova de 50 joins
+> concorrentes, sem overbooking e com um único fato local de conclusão. Os
+> gates passaram com 123 testes (76 de API); não adicione broker/outbox, cache
+> ou typed client.
 
 ## Milestone history
 
@@ -238,4 +258,5 @@ execution state; `plan.md` remains authoritative for architectural decisions.
 | `a306e86` | Fase 3, item 3, ticket 2: Lobby join/leave CQRS with bounded optimistic-concurrency retry | Repository gates and 116 tests passed; deterministic PostgreSQL stale-write retry proof added |
 | `c303021` | Fase 3, item 3, ticket 3: owner-or-moderator Lobby cancellation CQRS with bounded optimistic-concurrency retry | Repository gates and 118 tests passed; authorization and concurrent-cancellation proof added |
 | `1e8d4b5` | Fase 3, item 4: Lobby create/search/join/leave/cancel HTTP endpoints | Repository gates and 120 tests passed; RFC 9457, IDOR, token-kind, and overposting coverage added |
+| `4b501eb` | Fase 3, item 6: Lobby keyset pagination and minimized search projections | Repository gates and 123 tests passed; continuation, input failures, anonymous rejection, and projection-minimization coverage added |
 | `9f804b7` | Fase 3, item 5: HTTP idempotency ledger for Lobby creation and join | Repository gates and 122 tests passed; duplicate, concurrent replay, conflict, owner isolation, expiry, and migration-replay coverage added |
