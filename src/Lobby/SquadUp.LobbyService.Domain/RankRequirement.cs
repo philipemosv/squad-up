@@ -7,6 +7,11 @@ public sealed record RankRequirement
 {
     public const int MaxGameIdLength = 32;
 
+    private RankRequirement()
+    {
+        GameId = string.Empty;
+    }
+
     public RankRequirement(string gameId, int minimumOrdinal, int? maximumOrdinal = null)
     {
         GameId = NormalizeGameId(gameId);
@@ -16,11 +21,11 @@ public sealed record RankRequirement
             : ValidateMaximumOrdinal(maximumOrdinal.Value, MinimumOrdinal);
     }
 
-    public string GameId { get; }
+    public string GameId { get; private set; }
 
-    public int MinimumOrdinal { get; }
+    public int MinimumOrdinal { get; private set; }
 
-    public int? MaximumOrdinal { get; }
+    public int? MaximumOrdinal { get; private set; }
 
     public bool IsSatisfiedBy(PlayerRank rank)
     {

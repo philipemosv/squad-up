@@ -7,6 +7,12 @@ public sealed class Lobby
 
     private readonly List<LobbyMember> members = [];
     private readonly List<LobbyCompleted> completedEvents = [];
+    private int membersCount;
+
+    private Lobby()
+    {
+        RankRequirement = null!;
+    }
 
     public Lobby(Guid id, Guid ownerPlayerId, int capacity, RankRequirement rankRequirement)
     {
@@ -26,17 +32,17 @@ public sealed class Lobby
         Status = LobbyStatus.Recruiting;
     }
 
-    public Guid Id { get; }
+    public Guid Id { get; private set; }
 
-    public Guid OwnerPlayerId { get; }
+    public Guid OwnerPlayerId { get; private set; }
 
-    public int Capacity { get; }
+    public int Capacity { get; private set; }
 
-    public RankRequirement RankRequirement { get; }
+    public RankRequirement RankRequirement { get; private set; }
 
     public LobbyStatus Status { get; private set; }
 
-    public int MembersCount => members.Count;
+    public int MembersCount => membersCount;
 
     public IReadOnlyList<LobbyMember> Members => members.AsReadOnly();
 
@@ -58,6 +64,7 @@ public sealed class Lobby
         }
 
         members.Add(member);
+        membersCount++;
 
         if (MembersCount == Capacity)
         {

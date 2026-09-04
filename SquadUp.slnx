@@ -24,6 +24,7 @@
     <Project Path="tests/SquadUp.Api.IntegrationTests/SquadUp.Api.IntegrationTests.csproj" />
     <Project Path="tests/SquadUp.Contracts.Tests/SquadUp.Contracts.Tests.csproj" />
     <Project Path="tests/SquadUp.IntegrationTests/SquadUp.IntegrationTests.csproj" />
+    <Project Path="tests/SquadUp.LobbyService.IntegrationTests/SquadUp.LobbyService.IntegrationTests.csproj" />
     <Project Path="tests/SquadUp.LobbyService.Domain.Tests/SquadUp.LobbyService.Domain.Tests.csproj" />
     <Project Path="tests/SquadUp.ServiceDefaults.Tests/SquadUp.ServiceDefaults.Tests.csproj" />
   </Folder>

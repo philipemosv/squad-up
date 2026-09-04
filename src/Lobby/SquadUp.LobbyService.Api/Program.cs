@@ -11,6 +11,7 @@ builder.Services
     .Validate(LobbyHostOptions.IsValid, LobbyHostOptions.ValidationError)
     .ValidateOnStart();
 builder.Services.AddLobbyInternalAuthentication(builder.Configuration);
+builder.Services.AddLobbyPersistence(builder.Configuration);
 
 var app = builder.Build();
 app.UseSquadUpServiceDefaults();

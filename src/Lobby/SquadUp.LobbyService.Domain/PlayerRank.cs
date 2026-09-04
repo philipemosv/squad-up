@@ -5,6 +5,11 @@ namespace SquadUp.LobbyService.Domain;
 /// </summary>
 public sealed record PlayerRank
 {
+    private PlayerRank()
+    {
+        GameId = string.Empty;
+    }
+
     public PlayerRank(string gameId, int ordinal)
     {
         GameId = NormalizeGameId(gameId);
@@ -13,9 +18,9 @@ public sealed record PlayerRank
             : throw new ArgumentOutOfRangeException(nameof(ordinal), ordinal, "Rank ordinal must be positive.");
     }
 
-    public string GameId { get; }
+    public string GameId { get; private set; }
 
-    public int Ordinal { get; }
+    public int Ordinal { get; private set; }
 
     private static string NormalizeGameId(string gameId)
     {

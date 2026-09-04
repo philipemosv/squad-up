@@ -5,6 +5,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\BuildingBlocks\SquadUp.ServiceDefaults\SquadUp.ServiceDefaults.csproj" />
     <ProjectReference Include="..\SquadUp.LobbyService.Application\SquadUp.LobbyService.Application.csproj" />
     <ProjectReference Include="..\SquadUp.LobbyService.Infrastructure\SquadUp.LobbyService.Infrastructure.csproj" />

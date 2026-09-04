@@ -8,6 +8,13 @@ public sealed class LobbyMember
     public const int MaxDiscordUserIdLength = 32;
     public const int MaxDisplayNameLength = 32;
 
+    private LobbyMember()
+    {
+        DiscordUserId = string.Empty;
+        DisplayName = string.Empty;
+        Rank = null!;
+    }
+
     public LobbyMember(Guid playerId, string discordUserId, string displayName, PlayerRank rank)
     {
         PlayerId = playerId != Guid.Empty
@@ -18,13 +25,13 @@ public sealed class LobbyMember
         Rank = rank ?? throw new ArgumentNullException(nameof(rank));
     }
 
-    public Guid PlayerId { get; }
+    public Guid PlayerId { get; private set; }
 
-    public string DiscordUserId { get; }
+    public string DiscordUserId { get; private set; }
 
-    public string DisplayName { get; }
+    public string DisplayName { get; private set; }
 
-    public PlayerRank Rank { get; }
+    public PlayerRank Rank { get; private set; }
 
     private static string ValidateRequired(string value, int maximumLength, string parameterName)
     {

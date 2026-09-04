@@ -40,8 +40,13 @@ public sealed class LobbyServiceDefaultsTests : IClassFixture<WebApplicationFact
         using var response = await client.GetAsync(path);
         var document = await response.Content.ReadFromJsonAsync<JsonDocument>();
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal("Healthy", document!.RootElement.GetProperty("status").GetString());
+        var expectedStatusCode = path == "/health/ready"
+            ? HttpStatusCode.ServiceUnavailable
+            : HttpStatusCode.OK;
+        var expectedStatus = path == "/health/ready" ? "Unhealthy" : "Healthy";
+
+        Assert.Equal(expectedStatusCode, response.StatusCode);
+        Assert.Equal(expectedStatus, document!.RootElement.GetProperty("status").GetString());
         Assert.False(document.RootElement.ToString().Contains("exception", StringComparison.OrdinalIgnoreCase));
     }
 
@@ -204,7 +209,9 @@ public sealed class LobbyServiceDefaultsTests : IClassFixture<WebApplicationFact
             ["InternalAuthentication:MaximumTokenLifetimeSeconds"] = "120",
             ["InternalAuthentication:AllowedScopes:0"] = "lobby.read",
             ["InternalAuthentication:AllowedScopes:1"] = "lobby.write",
-            ["InternalAuthentication:PublicKeys:test-current"] = PublicKeyPem
+            ["InternalAuthentication:PublicKeys:test-current"] = PublicKeyPem,
+            ["ConnectionStrings:LobbyDatabase"] =
+                "Host=127.0.0.1;Port=1;Database=unavailable;Timeout=1"
         });
 
     private static string CreatePublicKeyPem()
