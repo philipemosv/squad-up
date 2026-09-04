@@ -8,8 +8,8 @@ execution state; `plan.md` remains authoritative for architectural decisions.
 ## Current state
 
 - Branch: `main`; functional changes are synchronized with `origin/main` at
-  `1e8d4b5` (Lobby HTTP endpoints). This document is the separate handoff
-  record for that milestone.
+  `9f804b7` (Lobby HTTP idempotency ledger). This document is the separate
+  handoff record for that milestone.
 - Context workflow milestone: `7dd7d8f docs: add context-efficient ticket
   workflow`. Broad work now uses the repository-local
   `$squad-up-to-tickets` skill, two to five vertical tickets when splitting is
@@ -179,9 +179,24 @@ execution state; `plan.md` remains authoritative for architectural decisions.
   different player receiving 403 when cancelling. HTTP idempotency remains
   explicitly deferred to F3-05; no broker/outbox, cache, pagination, or API to
   Lobby typed client was added.
-- Next task: Fase 3, item 5 (`F3-05`) — HTTP `Idempotency-Key` ledger with
-  request hash, authenticated owner, expiry/retention, duplicate/conflict tests,
-  and no unsafe automatic retry.
+- Completed plan item: Fase 3, item 5 (`F3-05`) — HTTP `Idempotency-Key`
+  ledger for lobby creation and join. A 128-character ASCII key is bound to the
+  delegated authenticated `sub` and SHA-256 canonical command hash; the
+  Lobby-owned row records the response for replay and expires after 24 hours.
+  A PostgreSQL transaction plus advisory lock serializes concurrent duplicates;
+  a different hash returns `409 idempotency_key_conflict` without executing the
+  command. The ledger and command persist atomically; no automatic HTTP retry
+  was added.
+- Verification: focused endpoint tests passed (4), the full Lobby integration
+  suite passed (17), and the generated idempotent migration scripts replayed
+  twice. Locked restore, formatter verification, Release CI build with zero
+  warnings, and the complete suite passed — 122 tests, including 76 API
+  integration tests. EF reports no pending model changes.
+- Retention limitation: expired rows are rejected and opportunistically purged
+  by later idempotent commands; a scheduled no-traffic purge remains out of
+  scope until operational retention requirements are defined.
+- Next task: Fase 3, item 6 (`F3-06`) — keyset pagination and minimized read
+  projections for Lobby search.
 - CI repair: the Lobby container smoke now supplies an ephemeral, credential-free
   valid connection string solely for startup validation and probes `/health/live`.
   It no longer claims database readiness when no PostgreSQL container exists;
@@ -193,12 +208,11 @@ execution state; `plan.md` remains authoritative for architectural decisions.
 
 ## Next-session prompt
 
-> Inicie uma sessão nova após o milestone `1e8d4b5`, que conclui `F3-04` com os
-> endpoints HTTP do Lobby, autorização por recurso, DTOs explícitos e RFC 9457.
-> Confirme este handoff contra o Git e implemente somente `F3-05`: ledger de
-> `Idempotency-Key` com hash da requisição, owner autenticado, TTL/retenção e
-> provas de repetição/conflito. Os gates passaram com 120 testes (76 de API);
-> não adicione broker/outbox, cache, paginação ou typed client.
+> Inicie uma sessão nova após o milestone `9f804b7`, que conclui `F3-05` com o
+> ledger HTTP de idempotência para criação e join de Lobby. Confirme este
+> handoff contra o Git e implemente somente `F3-06`: keyset pagination e
+> projeções mínimas para busca. Os gates passaram com 122 testes (76 de API);
+> não adicione broker/outbox, cache ou typed client.
 
 ## Milestone history
 
@@ -224,3 +238,4 @@ execution state; `plan.md` remains authoritative for architectural decisions.
 | `a306e86` | Fase 3, item 3, ticket 2: Lobby join/leave CQRS with bounded optimistic-concurrency retry | Repository gates and 116 tests passed; deterministic PostgreSQL stale-write retry proof added |
 | `c303021` | Fase 3, item 3, ticket 3: owner-or-moderator Lobby cancellation CQRS with bounded optimistic-concurrency retry | Repository gates and 118 tests passed; authorization and concurrent-cancellation proof added |
 | `1e8d4b5` | Fase 3, item 4: Lobby create/search/join/leave/cancel HTTP endpoints | Repository gates and 120 tests passed; RFC 9457, IDOR, token-kind, and overposting coverage added |
+| `9f804b7` | Fase 3, item 5: HTTP idempotency ledger for Lobby creation and join | Repository gates and 122 tests passed; duplicate, concurrent replay, conflict, owner isolation, expiry, and migration-replay coverage added |
