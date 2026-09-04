@@ -94,7 +94,15 @@ recarrega o recurso antes da política owner-or-moderator. Os DTOs HTTP
 allowlistam campos de comando, as falhas usam RFC 9457 com códigos estáveis, e
 os testes HTTP cobrem 401, token de workload, sobrepostagem e IDOR entre dois
 jogadores. Idempotência HTTP permanece em F3-05; não há broker/outbox.
-### F3-05 — ledger HTTP Idempotency-Key — Pendente
+### F3-05 — ledger HTTP Idempotency-Key — Concluído
+
+`POST /lobbies` e `POST /lobbies/{lobbyId}/members` exigem uma chave ASCII
+limitada a 128 caracteres. O ledger Lobby-owned vincula a chave ao `sub`
+delegado e ao SHA-256 do comando canônico, guarda a resposta HTTP e expira em
+24 horas. Um advisory lock transacional PostgreSQL serializa duplicatas
+concorrentes para que retornem a resposta persistida; reutilização com outro
+comando retorna `409 idempotency_key_conflict`. A migration expand-only e o
+script operacional são reaplicados duas vezes nos testes.
 ### F3-06 — keyset pagination e projections — Pendente
 ### F3-07 — corrida de 50 joins/overbooking — Pendente
 ### F3-08 — typed client API→Lobby/JWT/timeout/circuit breaker — Pendente

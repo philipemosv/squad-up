@@ -59,7 +59,7 @@ public sealed class LobbyEndpointTests : IClassFixture<LobbyDatabaseFixture>
             gameId = "dota2",
             minimumRankOrdinal = 1,
             ownerPlayerId = otherPlayerId
-        });
+        }, idempotencyKey: "endpoint-create-1");
         Assert.Equal(HttpStatusCode.Created, create.StatusCode);
         using var created = JsonDocument.Parse(await create.Content.ReadAsStringAsync());
         var lobbyId = created.RootElement.GetProperty("lobbyId").GetGuid();
@@ -79,7 +79,7 @@ public sealed class LobbyEndpointTests : IClassFixture<LobbyDatabaseFixture>
             gameId = "dota2",
             rankOrdinal = 4,
             playerId = ownerId
-        });
+        }, idempotencyKey: "endpoint-join-1");
         Assert.Equal(HttpStatusCode.NoContent, join.StatusCode);
         await AssertMemberOwnedByAuthenticatedSubjectAsync(application, lobbyId, otherPlayerId);
 
@@ -106,6 +106,92 @@ public sealed class LobbyEndpointTests : IClassFixture<LobbyDatabaseFixture>
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         await AssertProblemCodeAsync(response, "delegated_user_required");
+    }
+
+    [Fact]
+    public async Task IdempotencyKeysReplayTheStoredResponseRejectConflictsAndExpire()
+    {
+        await using var application = new LobbyApplication(fixture.PostgreSql.GetConnectionString());
+        await application.MigrateAsync();
+        using var client = application.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
+        var ownerId = Guid.CreateVersion7();
+        var otherOwnerId = Guid.CreateVersion7();
+        var ownerToken = application.CreateDelegatedToken(ownerId, "lobby.write");
+        var otherOwnerToken = application.CreateDelegatedToken(otherOwnerId, "lobby.write");
+        const string key = "idempotency-create-1";
+        var body = new { capacity = 2, gameId = "dota2", minimumRankOrdinal = 1 };
+
+        using var missing = await SendJsonAsync(client, HttpMethod.Post, "/lobbies", ownerToken, body);
+        Assert.Equal(HttpStatusCode.BadRequest, missing.StatusCode);
+        await AssertProblemCodeAsync(missing, "idempotency_key_required");
+
+        using var first = await SendJsonAsync(client, HttpMethod.Post, "/lobbies", ownerToken, body, key);
+        Assert.Equal(HttpStatusCode.Created, first.StatusCode);
+        var firstLobbyId = GetLobbyId(await first.Content.ReadAsStringAsync());
+
+        using var replay = await SendJsonAsync(client, HttpMethod.Post, "/lobbies", ownerToken, body, key);
+        Assert.Equal(HttpStatusCode.Created, replay.StatusCode);
+        Assert.Equal(firstLobbyId, GetLobbyId(await replay.Content.ReadAsStringAsync()));
+
+        using var conflict = await SendJsonAsync(client, HttpMethod.Post, "/lobbies", ownerToken, new
+        {
+            capacity = 3,
+            gameId = "dota2",
+            minimumRankOrdinal = 1
+        }, key);
+        Assert.Equal(HttpStatusCode.Conflict, conflict.StatusCode);
+        await AssertProblemCodeAsync(conflict, "idempotency_key_conflict");
+
+        using var distinctOwner = await SendJsonAsync(client, HttpMethod.Post, "/lobbies", otherOwnerToken, body, key);
+        Assert.Equal(HttpStatusCode.Created, distinctOwner.StatusCode);
+        Assert.NotEqual(firstLobbyId, GetLobbyId(await distinctOwner.Content.ReadAsStringAsync()));
+
+        await ExpireKeyAsync(application, ownerId, key);
+        using var afterExpiry = await SendJsonAsync(client, HttpMethod.Post, "/lobbies", ownerToken, body, key);
+        Assert.Equal(HttpStatusCode.Created, afterExpiry.StatusCode);
+        Assert.NotEqual(firstLobbyId, GetLobbyId(await afterExpiry.Content.ReadAsStringAsync()));
+
+        var concurrentKey = "idempotency-create-concurrent";
+        var concurrentFirst = SendJsonAsync(client, HttpMethod.Post, "/lobbies", ownerToken, body, concurrentKey);
+        var concurrentSecond = SendJsonAsync(client, HttpMethod.Post, "/lobbies", ownerToken, body, concurrentKey);
+        var concurrentResponses = await Task.WhenAll(concurrentFirst, concurrentSecond);
+        using var concurrentResponseOne = concurrentResponses[0];
+        using var concurrentResponseTwo = concurrentResponses[1];
+        Assert.Equal(HttpStatusCode.Created, concurrentResponseOne.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, concurrentResponseTwo.StatusCode);
+        Assert.Equal(
+            GetLobbyId(await concurrentResponseOne.Content.ReadAsStringAsync()),
+            GetLobbyId(await concurrentResponseTwo.Content.ReadAsStringAsync()));
+    }
+
+    [Fact]
+    public async Task JoinRequiresAnIdempotencyKeyAndReplaysWithoutAddingAnotherMember()
+    {
+        await using var application = new LobbyApplication(fixture.PostgreSql.GetConnectionString());
+        await application.MigrateAsync();
+        using var client = application.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
+        var ownerId = Guid.CreateVersion7();
+        var playerId = Guid.CreateVersion7();
+        var ownerToken = application.CreateDelegatedToken(ownerId, "lobby.write");
+        var playerToken = application.CreateDelegatedToken(playerId, "lobby.write");
+        using var create = await SendJsonAsync(client, HttpMethod.Post, "/lobbies", ownerToken, new
+        {
+            capacity = 2,
+            gameId = "dota2",
+            minimumRankOrdinal = 1
+        }, "join-test-create");
+        var lobbyId = GetLobbyId(await create.Content.ReadAsStringAsync());
+        var body = new { discordUserId = "synthetic-discord-id", displayName = "Synthetic Player", gameId = "dota2", rankOrdinal = 1 };
+
+        using var missing = await SendJsonAsync(client, HttpMethod.Post, $"/lobbies/{lobbyId}/members", playerToken, body);
+        Assert.Equal(HttpStatusCode.BadRequest, missing.StatusCode);
+        await AssertProblemCodeAsync(missing, "idempotency_key_required");
+
+        using var first = await SendJsonAsync(client, HttpMethod.Post, $"/lobbies/{lobbyId}/members", playerToken, body, "join-test-1");
+        using var replay = await SendJsonAsync(client, HttpMethod.Post, $"/lobbies/{lobbyId}/members", playerToken, body, "join-test-1");
+        Assert.Equal(HttpStatusCode.NoContent, first.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, replay.StatusCode);
+        await AssertMemberOwnedByAuthenticatedSubjectAsync(application, lobbyId, playerId);
     }
 
     private static async Task AssertMemberOwnedByAuthenticatedSubjectAsync(
@@ -138,7 +224,13 @@ public sealed class LobbyEndpointTests : IClassFixture<LobbyDatabaseFixture>
         return client.SendAsync(request);
     }
 
-    private static Task<HttpResponseMessage> SendJsonAsync(HttpClient client, HttpMethod method, string path, string? token, object body)
+    private static Task<HttpResponseMessage> SendJsonAsync(
+        HttpClient client,
+        HttpMethod method,
+        string path,
+        string? token,
+        object body,
+        string? idempotencyKey = null)
     {
         var request = new HttpRequestMessage(method, path)
         {
@@ -148,8 +240,22 @@ public sealed class LobbyEndpointTests : IClassFixture<LobbyDatabaseFixture>
         {
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         }
+        if (idempotencyKey is not null)
+        {
+            request.Headers.Add("Idempotency-Key", idempotencyKey);
+        }
 
         return client.SendAsync(request);
+    }
+
+    private static Guid GetLobbyId(string content) => JsonDocument.Parse(content).RootElement.GetProperty("lobbyId").GetGuid();
+
+    private static async Task ExpireKeyAsync(LobbyApplication application, Guid ownerId, string key)
+    {
+        await using var scope = application.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<LobbyDbContext>();
+        await context.Database.ExecuteSqlInterpolatedAsync(
+            $"UPDATE lobby.http_idempotency_keys SET expires_at_utc = {DateTimeOffset.UtcNow.AddMinutes(-1)} WHERE owner_player_id = {ownerId} AND key = {key}");
     }
 
     private sealed class LobbyApplication : WebApplicationFactory<Program>

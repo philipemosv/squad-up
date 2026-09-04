@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SquadUp.LobbyService.Infrastructure;
@@ -11,9 +12,11 @@ using SquadUp.LobbyService.Infrastructure;
 namespace SquadUp.LobbyService.Infrastructure.Migrations
 {
     [DbContext(typeof(LobbyDbContext))]
-    partial class LobbyDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260904120722_AddHttpIdempotencyLedger")]
+    partial class AddHttpIdempotencyLedger
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

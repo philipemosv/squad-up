@@ -19,6 +19,7 @@ public sealed class LobbyPersistenceTests : IClassFixture<LobbyDatabaseFixture>
     private static readonly string[] ExpectedTables =
     [
         "game_catalog",
+        "http_idempotency_keys",
         "lobbies",
         "lobby_members",
         "migration_history",
@@ -128,18 +129,19 @@ public sealed class LobbyPersistenceTests : IClassFixture<LobbyDatabaseFixture>
     public async Task GeneratedIdempotentSqlCanBeAppliedRepeatedly()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        var scriptPath = Path.Combine(
-            FindRepositoryRoot(),
-            "docs/database/migrations/lobby/001_initial_lobby.sql");
-        var sql = await File.ReadAllTextAsync(scriptPath, timeout.Token);
         await using var connection = new NpgsqlConnection(fixture.PostgreSql.GetConnectionString());
         await connection.OpenAsync(timeout.Token);
 
-        for (var attempt = 0; attempt < 2; attempt++)
+        foreach (var migration in new[] { "001_initial_lobby.sql", "002_http_idempotency_ledger.sql" })
         {
-            await using var command = connection.CreateCommand();
-            command.CommandText = sql;
-            await command.ExecuteNonQueryAsync(timeout.Token);
+            var scriptPath = Path.Combine(FindRepositoryRoot(), "docs/database/migrations/lobby", migration);
+            var sql = await File.ReadAllTextAsync(scriptPath, timeout.Token);
+            for (var attempt = 0; attempt < 2; attempt++)
+            {
+                await using var command = connection.CreateCommand();
+                command.CommandText = sql;
+                await command.ExecuteNonQueryAsync(timeout.Token);
+            }
         }
     }
 

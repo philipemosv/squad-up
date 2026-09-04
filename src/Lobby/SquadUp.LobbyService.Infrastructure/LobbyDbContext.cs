@@ -10,6 +10,8 @@ public sealed class LobbyDbContext(DbContextOptions<LobbyDbContext> options) : D
 
     public DbSet<Lobby> Lobbies => Set<Lobby>();
 
+    public DbSet<HttpIdempotencyKey> IdempotencyKeys => Set<HttpIdempotencyKey>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -17,6 +19,31 @@ public sealed class LobbyDbContext(DbContextOptions<LobbyDbContext> options) : D
 
         ConfigureCatalog(modelBuilder);
         ConfigureLobbies(modelBuilder);
+        ConfigureIdempotency(modelBuilder);
+    }
+
+    private static void ConfigureIdempotency(ModelBuilder builder)
+    {
+        builder.Entity<HttpIdempotencyKey>(entity =>
+        {
+            entity.ToTable("http_idempotency_keys", table =>
+            {
+                table.HasCheckConstraint("ck_http_idempotency_keys_key_length", "char_length(key) BETWEEN 1 AND 128");
+                table.HasCheckConstraint("ck_http_idempotency_keys_hash_length", "octet_length(request_hash) = 32");
+                table.HasCheckConstraint("ck_http_idempotency_keys_response_status", "response_status_code IS NULL OR response_status_code BETWEEN 100 AND 599");
+            });
+            entity.HasKey(record => new { record.OwnerPlayerId, record.Key }).HasName("pk_http_idempotency_keys");
+            entity.Property(record => record.OwnerPlayerId).HasColumnName("owner_player_id");
+            entity.Property(record => record.Key).HasColumnName("key").HasMaxLength(IHttpIdempotencyLedger.MaximumKeyLength);
+            entity.Property(record => record.RequestHash).HasColumnName("request_hash").HasMaxLength(32);
+            entity.Property(record => record.ExpiresAtUtc).HasColumnName("expires_at_utc");
+            entity.Property(record => record.ResponseStatusCode).HasColumnName("response_status_code");
+            entity.Property(record => record.ResponseCode).HasColumnName("response_code").HasMaxLength(64);
+            entity.Property(record => record.ResponseDetail).HasColumnName("response_detail").HasMaxLength(512);
+            entity.Property(record => record.ResponseLocation).HasColumnName("response_location").HasMaxLength(256);
+            entity.Property(record => record.ResponseBody).HasColumnName("response_body").HasMaxLength(2048);
+            entity.HasIndex(record => record.ExpiresAtUtc).HasDatabaseName("ix_http_idempotency_keys_expires_at_utc");
+        });
     }
 
     private static void ConfigureCatalog(ModelBuilder builder)

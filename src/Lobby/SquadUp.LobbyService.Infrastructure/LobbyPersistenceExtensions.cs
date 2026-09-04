@@ -43,6 +43,7 @@ public static class LobbyPersistenceExtensions
 
         services.AddScoped<ILobbyCommandService, LobbyCommandService>();
         services.AddScoped<ILobbyQueryService, LobbyQueryService>();
+        services.AddScoped<IHttpIdempotencyLedger, HttpIdempotencyLedger>();
 
         return services;
     }
