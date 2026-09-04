@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
 using SquadUp.LobbyService.Application;
+using SquadUp.LobbyService.Domain;
 using SquadUp.LobbyService.Infrastructure;
 
 namespace SquadUp.LobbyService.Api;
@@ -32,9 +33,36 @@ internal static class LobbyEndpoints
 
     private static async Task<IResult> SearchAsync(
         string? gameId,
+        string? cursor,
+        int? pageSize,
         ILobbyQueryService lobbies,
-        CancellationToken cancellationToken) =>
-        Results.Ok(await lobbies.SearchRecruitingAsync(gameId, cancellationToken));
+        CancellationToken cancellationToken)
+    {
+        if (gameId is not null && (string.IsNullOrWhiteSpace(gameId) || gameId.Trim().Length > RankRequirement.MaxGameIdLength))
+        {
+            return Problem(StatusCodes.Status400BadRequest, "lobby_game_id_invalid");
+        }
+
+        if (pageSize is <= 0 or > 50)
+        {
+            return Problem(StatusCodes.Status400BadRequest, "lobby_page_size_invalid");
+        }
+
+        Guid? afterLobbyId = null;
+        if (cursor is not null)
+        {
+            if (!LobbySearchCursor.TryDecode(cursor, out var decodedCursor))
+            {
+                return Problem(StatusCodes.Status400BadRequest, "lobby_cursor_invalid");
+            }
+
+            afterLobbyId = decodedCursor;
+        }
+
+        return Results.Ok(await lobbies.SearchRecruitingAsync(
+            new SearchRecruitingLobbiesRequest(gameId, afterLobbyId, pageSize ?? 20),
+            cancellationToken));
+    }
 
     private static async Task<IResult> CreateAsync(
         HttpContext context,

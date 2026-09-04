@@ -234,13 +234,53 @@ public sealed class LobbyPersistenceTests : IClassFixture<LobbyDatabaseFixture>
         await context.SaveChangesAsync(timeout.Token);
         context.ChangeTracker.Clear();
 
-        var summaries = await queries.SearchRecruitingAsync("dota2", timeout.Token);
+        var page = await queries.SearchRecruitingAsync(
+            new SearchRecruitingLobbiesRequest("dota2", null, 20),
+            timeout.Token);
+        var summaries = page.Items;
 
         var summary = Assert.Single(summaries, summary => summary.LobbyId == recruiting.LobbyId);
         Assert.Equal(5, summary.Capacity);
         Assert.Equal(0, summary.MembersCount);
         Assert.Equal("dota2", summary.GameId);
         Assert.DoesNotContain(summaries, summary => summary.LobbyId == cancelled.Id);
+        Assert.Null(page.NextCursor);
+        Assert.Empty(context.ChangeTracker.Entries());
+    }
+
+    [Fact]
+    public async Task SearchQueryUsesKeysetPaginationAndReturnsOnlyTheNextPageCursor()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await using var services = CreateServices();
+        await using var scope = services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<LobbyDbContext>();
+        var queries = scope.ServiceProvider.GetRequiredService<ILobbyQueryService>();
+        await context.Database.MigrateAsync(timeout.Token);
+
+        var firstId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+        var secondId = Guid.Parse("00000000-0000-0000-0000-000000000002");
+        var thirdId = Guid.Parse("00000000-0000-0000-0000-000000000003");
+        context.Lobbies.AddRange(
+            new Lobby(firstId, Guid.NewGuid(), 5, new RankRequirement("dota2", 1)),
+            new Lobby(secondId, Guid.NewGuid(), 5, new RankRequirement("dota2", 1)),
+            new Lobby(thirdId, Guid.NewGuid(), 5, new RankRequirement("dota2", 1)));
+        await context.SaveChangesAsync(timeout.Token);
+        context.ChangeTracker.Clear();
+
+        var firstPage = await queries.SearchRecruitingAsync(
+            new SearchRecruitingLobbiesRequest(" DOTA2 ", null, 2),
+            timeout.Token);
+        Assert.Equal([firstId, secondId], firstPage.Items.Select(summary => summary.LobbyId));
+        var cursor = Assert.IsType<string>(firstPage.NextCursor);
+        Assert.True(LobbySearchCursor.TryDecode(cursor, out var afterLobbyId));
+        Assert.Equal(secondId, afterLobbyId);
+
+        var secondPage = await queries.SearchRecruitingAsync(
+            new SearchRecruitingLobbiesRequest("dota2", afterLobbyId, 2),
+            timeout.Token);
+        Assert.Equal([thirdId], secondPage.Items.Select(summary => summary.LobbyId));
+        Assert.Null(secondPage.NextCursor);
         Assert.Empty(context.ChangeTracker.Entries());
     }
 

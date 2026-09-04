@@ -28,7 +28,7 @@ public interface ILobbyCommandService
 
 public interface ILobbyQueryService
 {
-    public Task<IReadOnlyList<LobbySummaryDto>> SearchRecruitingAsync(
-        string? gameId,
+    public Task<LobbySearchPageDto> SearchRecruitingAsync(
+        SearchRecruitingLobbiesRequest request,
         CancellationToken cancellationToken);
 }

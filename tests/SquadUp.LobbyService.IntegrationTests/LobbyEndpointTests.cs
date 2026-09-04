@@ -53,6 +53,10 @@ public sealed class LobbyEndpointTests : IClassFixture<LobbyDatabaseFixture>
         Assert.Equal(HttpStatusCode.Unauthorized, anonymousCreate.StatusCode);
         await AssertProblemCodeAsync(anonymousCreate, "authentication_required");
 
+        using var anonymousSearch = await SendAsync(client, HttpMethod.Get, "/lobbies", null);
+        Assert.Equal(HttpStatusCode.Unauthorized, anonymousSearch.StatusCode);
+        await AssertProblemCodeAsync(anonymousSearch, "authentication_required");
+
         using var create = await SendJsonAsync(client, HttpMethod.Post, "/lobbies", ownerToken, new
         {
             capacity = 2,
@@ -64,9 +68,20 @@ public sealed class LobbyEndpointTests : IClassFixture<LobbyDatabaseFixture>
         using var created = JsonDocument.Parse(await create.Content.ReadAsStringAsync());
         var lobbyId = created.RootElement.GetProperty("lobbyId").GetGuid();
 
-        using var search = await SendAsync(client, HttpMethod.Get, "/lobbies?gameId=dota2", ownerToken);
+        using var search = await SendAsync(client, HttpMethod.Get, "/lobbies?gameId=dota2&pageSize=1", ownerToken);
         Assert.Equal(HttpStatusCode.OK, search.StatusCode);
-        Assert.Contains(lobbyId.ToString("D"), await search.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
+        var searchBody = await search.Content.ReadAsStringAsync();
+        Assert.Contains(lobbyId.ToString("D"), searchBody, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("ownerPlayerId", searchBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"members\":", searchBody, StringComparison.Ordinal);
+
+        using var invalidCursor = await SendAsync(client, HttpMethod.Get, "/lobbies?cursor=not-a-cursor", ownerToken);
+        Assert.Equal(HttpStatusCode.BadRequest, invalidCursor.StatusCode);
+        await AssertProblemCodeAsync(invalidCursor, "lobby_cursor_invalid");
+
+        using var invalidPageSize = await SendAsync(client, HttpMethod.Get, "/lobbies?pageSize=51", ownerToken);
+        Assert.Equal(HttpStatusCode.BadRequest, invalidPageSize.StatusCode);
+        await AssertProblemCodeAsync(invalidPageSize, "lobby_page_size_invalid");
 
         using var forbiddenCancel = await SendAsync(client, HttpMethod.Post, $"/lobbies/{lobbyId}/cancel", otherToken);
         Assert.Equal(HttpStatusCode.Forbidden, forbiddenCancel.StatusCode);

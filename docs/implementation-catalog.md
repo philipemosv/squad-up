@@ -103,7 +103,14 @@ delegado e ao SHA-256 do comando canônico, guarda a resposta HTTP e expira em
 concorrentes para que retornem a resposta persistida; reutilização com outro
 comando retorna `409 idempotency_key_conflict`. A migration expand-only e o
 script operacional são reaplicados duas vezes nos testes.
-### F3-06 — keyset pagination e projections — Pendente
+### F3-06 — keyset pagination e projections — Concluído
+
+`GET /lobbies` pagina lobbies `Recruiting` por keyset de `LobbyId`, com cursor
+de continuação URL-safe, tamanho limitado de 1 a 50 (20 por padrão), filtro de
+jogo normalizado e uma projeção `AsNoTracking` sem owner ou membros. Cursor,
+tamanho e filtro inválidos retornam RFC 9457 com códigos estáveis; as provas
+cobrem páginas sem duplicação, exclusão de estados terminais, ausência de
+tracking, autenticação e minimização de resposta.
 ### F3-07 — corrida de 50 joins/overbooking — Pendente
 ### F3-08 — typed client API→Lobby/JWT/timeout/circuit breaker — Pendente
 ### F3-09 — degradação graciosa interna — Pendente

@@ -84,3 +84,18 @@ public sealed record LobbySummaryDto(
     string GameId,
     int MinimumRankOrdinal,
     int? MaximumRankOrdinal);
+
+/// <summary>
+/// Describes one bounded, forward-only recruiting-lobby search.
+/// </summary>
+public sealed record SearchRecruitingLobbiesRequest(
+    string? GameId,
+    Guid? AfterLobbyId,
+    int PageSize);
+
+/// <summary>
+/// Contains only the discoverable lobby summary fields and a URL-safe continuation cursor.
+/// </summary>
+public sealed record LobbySearchPageDto(
+    IReadOnlyList<LobbySummaryDto> Items,
+    string? NextCursor);
