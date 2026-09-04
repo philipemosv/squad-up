@@ -6,8 +6,9 @@ current contents of `plan.md` remain authoritative if this document is stale.
 
 ## Current state
 
-- Branch: `main`; tracked files are synchronized with `origin/main` after the
-  Lobby persistence milestone push.
+- Branch: `main`; functional changes are synchronized with `origin/main` at
+  `354daf5` (Lobby CQRS creation/search); this document is the separate
+  handoff record for that milestone.
 - Context workflow milestone: `7dd7d8f docs: add context-efficient ticket
   workflow`. Broad work now uses the repository-local
   `$squad-up-to-tickets` skill, two to five vertical tickets when splitting is
@@ -107,16 +108,33 @@ current contents of `plan.md` remain authoritative if this document is stale.
 - Migration safety: `001_initial_lobby.sql` is reviewed idempotent expand-only
   SQL. Production must apply it with the dedicated migration identity before
   enabling Lobby commands; application startup never migrates.
-- Next task: Fase 3, item 3 — add Lobby CQRS commands and queries without a
-  broker, using the local persistence boundary and bounded concurrency handling.
+- Completed plan item: Fase 3, item 3, ticket 1 of 3 — CQRS creation and
+  discovery for Lobby without a broker. Application exposes explicit command
+  and query contracts; Infrastructure validates active local catalog values,
+  persists a new `Recruiting` lobby, and projects only deliberately publishable
+  recruiting-lobby fields with `AsNoTracking`.
+- Verification: focused Lobby persistence/CQRS suite passed — 9 tests covering
+  successful creation, normalized game ID, inactive/unknown catalog failures,
+  invalid capacity, non-recruiting exclusion, minimized projection, and no EF
+  tracking. Locked restore, formatter verification, Release CI build with zero
+  warnings, and the complete suite passed — 111 tests, including 76 API
+  integration tests.
+- Security and limits: the creation request excludes owner, member, version,
+  and authorization fields; owner identity is a separate service argument for
+  the future authenticated boundary. Search intentionally excludes owner and
+  participant data. HTTP endpoints, resource authorization, pagination,
+  idempotency, and broker/outbox handling remain out of scope.
+- Next task: Fase 3, item 3, ticket 2 of 3 — add join/leave CQRS commands with
+  bounded optimistic-concurrency re-evaluation and focused PostgreSQL conflict
+  tests; do not add endpoints, idempotency ledger, or broker/outbox behavior.
 
 ## Next-session prompt
 
-> Inicie uma sessão nova para a Fase 3 após o milestone `1badbcd` de
-> persistência do Lobby. Confirme este handoff contra o Git e use
-> `$squad-up-to-tickets` para o item 3: implementar comandos e queries CQRS do
-> Lobby sem broker, com autorização e tratamento limitado de conflito otimista.
-> Os gates passaram com 110 testes (76 de API).
+> Inicie uma sessão nova para a Fase 3 após o milestone `354daf5` de CQRS para
+> criação e busca de Lobby. Confirme este handoff contra o Git e implemente
+> somente o ticket 2 do item 3: comandos de join/leave com reavaliação limitada
+> de conflito otimista e testes PostgreSQL focados. Os gates passaram com 111
+> testes (76 de API); não adicione endpoints, idempotência HTTP ou broker.
 
 ## Milestone history
 
@@ -137,3 +155,4 @@ current contents of `plan.md` remain authoritative if this document is stale.
 | `83f8bfe` | Fase 2, item 9: Discord OAuth in-memory HTTP double verifies the authenticated authorization-code token request | Repository gates and 92 tests passed; 12 focused OAuth tests passed |
 | `2674296` | Fase 3, item 1: Lobby aggregate, rank value objects, participant snapshots, and explicit state transitions | Repository gates and 103 tests passed; 11 focused Domain tests passed |
 | `1badbcd` | Fase 3, item 2: Lobby EF persistence, local catalog, constraints, migration SQL, and `xmin` | Repository gates and 110 tests passed; 7 focused Lobby persistence tests passed |
+| `354daf5` | Fase 3, item 3, ticket 1: Lobby CQRS create and recruiting-search services | Repository gates and 111 tests passed; 9 focused Lobby persistence/CQRS tests passed |
