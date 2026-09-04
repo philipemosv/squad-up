@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -240,6 +241,91 @@ public sealed class LobbyPersistenceTests : IClassFixture<LobbyDatabaseFixture>
         Assert.Empty(context.ChangeTracker.Entries());
     }
 
+    [Fact]
+    public async Task JoinAndLeaveCommandsPersistOnlyValidRecruitingMembershipChanges()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await using var services = CreateServices();
+        await using var scope = services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<LobbyDbContext>();
+        var commands = scope.ServiceProvider.GetRequiredService<ILobbyCommandService>();
+        await context.Database.MigrateAsync(timeout.Token);
+
+        var created = await commands.CreateAsync(
+            Guid.NewGuid(),
+            new CreateLobbyRequest(3, "dota2", 2, 5),
+            timeout.Token);
+        var lobbyId = Assert.IsType<Guid>(created.LobbyId);
+        var playerId = Guid.NewGuid();
+        var request = new JoinLobbyRequest("123456789", "Synthetic Player", "dota2", 3);
+
+        var joined = await commands.JoinAsync(lobbyId, playerId, request, timeout.Token);
+        var duplicate = await commands.JoinAsync(lobbyId, playerId, request, timeout.Token);
+        var insufficientRank = await commands.JoinAsync(
+            lobbyId,
+            Guid.NewGuid(),
+            request with { RankOrdinal = 1 },
+            timeout.Token);
+        var invalidPlayer = await commands.JoinAsync(lobbyId, Guid.Empty, request, timeout.Token);
+        var missingLobby = await commands.JoinAsync(Guid.NewGuid(), Guid.NewGuid(), request, timeout.Token);
+        var unknownMember = await commands.LeaveAsync(lobbyId, Guid.NewGuid(), timeout.Token);
+        var left = await commands.LeaveAsync(lobbyId, playerId, timeout.Token);
+
+        Assert.Equal(LobbyMembershipOutcome.Success, joined.Outcome);
+        Assert.Equal(LobbyMembershipOutcome.Rejected, duplicate.Outcome);
+        Assert.Equal(LobbyMembershipOutcome.Rejected, insufficientRank.Outcome);
+        Assert.Equal(LobbyMembershipOutcome.ValidationFailed, invalidPlayer.Outcome);
+        Assert.Equal(LobbyMembershipOutcome.LobbyNotFound, missingLobby.Outcome);
+        Assert.Equal(LobbyMembershipOutcome.Rejected, unknownMember.Outcome);
+        Assert.Equal(LobbyMembershipOutcome.Success, left.Outcome);
+
+        context.ChangeTracker.Clear();
+        var lobby = await context.Lobbies
+            .Include("members")
+            .SingleAsync(candidate => candidate.Id == lobbyId, timeout.Token);
+        Assert.Equal(LobbyStatus.Recruiting, lobby.Status);
+        Assert.Equal(0, lobby.MembersCount);
+        Assert.Empty(lobby.Members);
+    }
+
+    [Fact]
+    public async Task ConcurrentJoinsReloadAndReevaluateTheLobbyWithoutOverbooking()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var interceptor = new SynchronizeFirstTwoMembershipSavesInterceptor();
+        await using var services = CreateServices(interceptor);
+        Guid lobbyId;
+        await using (var setupScope = services.CreateAsyncScope())
+        {
+            var context = setupScope.ServiceProvider.GetRequiredService<LobbyDbContext>();
+            var commands = setupScope.ServiceProvider.GetRequiredService<ILobbyCommandService>();
+            await context.Database.MigrateAsync(timeout.Token);
+            var created = await commands.CreateAsync(
+                Guid.NewGuid(),
+                new CreateLobbyRequest(2, "dota2", 1, null),
+                timeout.Token);
+            lobbyId = Assert.IsType<Guid>(created.LobbyId);
+        }
+
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var first = JoinInSeparateScopeAsync(services, lobbyId, start.Task, timeout.Token);
+        var second = JoinInSeparateScopeAsync(services, lobbyId, start.Task, timeout.Token);
+        start.SetResult();
+
+        var results = await Task.WhenAll(first, second);
+
+        Assert.All(results, result => Assert.Equal(LobbyMembershipOutcome.Success, result.Outcome));
+        await using var verifyScope = services.CreateAsyncScope();
+        var verifyContext = verifyScope.ServiceProvider.GetRequiredService<LobbyDbContext>();
+        var lobby = await verifyContext.Lobbies
+            .Include("members")
+            .SingleAsync(candidate => candidate.Id == lobbyId, timeout.Token);
+        Assert.Equal(LobbyStatus.Full, lobby.Status);
+        Assert.Equal(2, lobby.MembersCount);
+        Assert.Equal(2, lobby.Members.Count);
+        Assert.Equal(3, interceptor.MembershipSaveCount);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("not-a-connection-string")]
@@ -280,7 +366,7 @@ public sealed class LobbyPersistenceTests : IClassFixture<LobbyDatabaseFixture>
         await host.StopAsync(timeout.Token);
     }
 
-    private ServiceProvider CreateServices()
+    private ServiceProvider CreateServices(IInterceptor? interceptor = null)
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -290,9 +376,64 @@ public sealed class LobbyPersistenceTests : IClassFixture<LobbyDatabaseFixture>
             .Build();
         var services = new ServiceCollection();
         services.AddLogging();
+        if (interceptor is not null)
+        {
+            services.AddSingleton<IInterceptor>(interceptor);
+        }
+
         services.AddLobbyPersistence(configuration);
 
         return services.BuildServiceProvider(validateScopes: true);
+    }
+
+    private static async Task<LobbyMembershipResult> JoinInSeparateScopeAsync(
+        ServiceProvider services,
+        Guid lobbyId,
+        Task start,
+        CancellationToken cancellationToken)
+    {
+        await start;
+        await using var scope = services.CreateAsyncScope();
+        var commands = scope.ServiceProvider.GetRequiredService<ILobbyCommandService>();
+        return await commands.JoinAsync(
+            lobbyId,
+            Guid.NewGuid(),
+            new JoinLobbyRequest(Guid.NewGuid().ToString("N"), "Concurrent Player", "dota2", 1),
+            cancellationToken);
+    }
+
+    private sealed class SynchronizeFirstTwoMembershipSavesInterceptor : SaveChangesInterceptor
+    {
+        private readonly TaskCompletionSource release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int membershipSaveCount;
+
+        public int MembershipSaveCount => Volatile.Read(ref membershipSaveCount);
+
+        public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(
+            DbContextEventData eventData,
+            InterceptionResult<int> result,
+            CancellationToken cancellationToken = default)
+        {
+            var isMembershipSave = eventData.Context?.ChangeTracker.Entries<LobbyMember>()
+                .Any(entry => entry.State == EntityState.Added) == true;
+            if (!isMembershipSave)
+            {
+                return result;
+            }
+
+            var membershipSaveNumber = Interlocked.Increment(ref membershipSaveCount);
+            if (membershipSaveNumber <= 2)
+            {
+                if (membershipSaveNumber == 2)
+                {
+                    release.TrySetResult();
+                }
+
+                await release.Task.WaitAsync(cancellationToken);
+            }
+
+            return result;
+        }
     }
 
     private static string FindRepositoryRoot()

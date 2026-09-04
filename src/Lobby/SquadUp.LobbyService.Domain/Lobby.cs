@@ -73,6 +73,25 @@ public sealed class Lobby
         }
     }
 
+    public void RemoveMember(Guid playerId)
+    {
+        if (playerId == Guid.Empty)
+        {
+            throw new ArgumentException("Player id must not be empty.", nameof(playerId));
+        }
+
+        EnsureStatus(LobbyStatus.Recruiting, "remove a member");
+
+        var member = members.SingleOrDefault(candidate => candidate.PlayerId == playerId);
+        if (member is null)
+        {
+            throw new InvalidOperationException("The player is not a member of this lobby.");
+        }
+
+        members.Remove(member);
+        membersCount--;
+    }
+
     public void StartProvisioning()
     {
         EnsureStatus(LobbyStatus.Full, "start provisioning");

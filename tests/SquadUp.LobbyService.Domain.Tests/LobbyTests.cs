@@ -46,6 +46,34 @@ public sealed class LobbyTests
     }
 
     [Fact]
+    public void RemoveMemberWhileRecruitingRemovesOnlyTheExistingMember()
+    {
+        var lobby = CreateLobby();
+        var member = CreateMember();
+        lobby.AddMember(member);
+
+        lobby.RemoveMember(member.PlayerId);
+
+        Assert.Empty(lobby.Members);
+        Assert.Equal(0, lobby.MembersCount);
+    }
+
+    [Fact]
+    public void RemoveMemberWhenLobbyIsNoLongerRecruitingRejectsWithoutChangingCompletion()
+    {
+        var lobby = CreateLobby(capacity: 2);
+        var member = CreateMember();
+        lobby.AddMember(member);
+        lobby.AddMember(CreateMember());
+
+        var exception = Assert.Throws<InvalidOperationException>(() => lobby.RemoveMember(member.PlayerId));
+
+        Assert.Contains("Recruiting", exception.Message, StringComparison.Ordinal);
+        Assert.Equal(2, lobby.MembersCount);
+        Assert.Single(lobby.CompletedEvents);
+    }
+
+    [Fact]
     public void AddMemberWhenRankDoesNotMeetRequirementRejectsMember()
     {
         var lobby = CreateLobby();

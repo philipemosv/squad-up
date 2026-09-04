@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -30,6 +31,7 @@ public static class LobbyPersistenceExtensions
             options.UseNpgsql(persistence.ConnectionString, npgsql => npgsql
                 .MigrationsAssembly(typeof(LobbyDbContext).Assembly.FullName)
                 .MigrationsHistoryTable(LobbyDbContext.MigrationsHistoryTable, LobbyDbContext.SchemaName));
+            options.AddInterceptors(serviceProvider.GetServices<IInterceptor>());
         });
 
         services
