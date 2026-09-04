@@ -8,7 +8,7 @@ execution state; `plan.md` remains authoritative for architectural decisions.
 ## Current state
 
 - Branch: `main`; functional changes are synchronized with `origin/main` at
-  `c303021` (Lobby cancellation CQRS). This document is the separate handoff
+  `1e8d4b5` (Lobby HTTP endpoints). This document is the separate handoff
   record for that milestone.
 - Context workflow milestone: `7dd7d8f docs: add context-efficient ticket
   workflow`. Broad work now uses the repository-local
@@ -160,9 +160,28 @@ execution state; `plan.md` remains authoritative for architectural decisions.
   Moderator/Admin may cancel using the current owner resource. No endpoint,
   HTTP idempotency, broker/outbox, audit event, cache, or external side effect
   was added. Caller claims remain only at the internal authenticated boundary.
-- Next task: Fase 3, item 4 (`F3-04`) — expose create/search/join/leave/cancel
-  endpoints with resource authorization, explicit DTO binding, RFC 9457 errors,
-  and negative HTTP coverage; keep HTTP idempotency for `F3-05`.
+- Completed plan item: Fase 3, item 4 (`F3-04`) — the Lobby host now exposes
+  create/search/join/leave/cancel endpoints over existing CQRS services. Every
+  player operation requires a delegated internal JWT; owner and member identity
+  are derived from `sub`, never bound from request JSON. Cancellation reloads
+  current state before owner-or-moderator authorization, preventing IDOR.
+- HTTP failures: unauthenticated, scope/resource denial, validation, not-found,
+  domain rejection, and concurrency outcomes use RFC 9457 Problem Details with
+  stable codes. The JWT challenge/forbidden paths now also return sanitized
+  Problem Details. DTO responses remain minimized and do not expose owner or
+  participant snapshots.
+- Verification: focused Lobby endpoint tests passed (2) and the whole Lobby
+  integration suite passed (15). Locked restore, formatter verification,
+  Release CI build with zero warnings, and the full suite passed — 120 tests,
+  including 76 API integration tests.
+- Security and limits: HTTP tests prove anonymous 401, workload-token refusal,
+  ignored owner/player overposting, authenticated-subject membership, and a
+  different player receiving 403 when cancelling. HTTP idempotency remains
+  explicitly deferred to F3-05; no broker/outbox, cache, pagination, or API to
+  Lobby typed client was added.
+- Next task: Fase 3, item 5 (`F3-05`) — HTTP `Idempotency-Key` ledger with
+  request hash, authenticated owner, expiry/retention, duplicate/conflict tests,
+  and no unsafe automatic retry.
 - CI repair: the Lobby container smoke now supplies an ephemeral, credential-free
   valid connection string solely for startup validation and probes `/health/live`.
   It no longer claims database readiness when no PostgreSQL container exists;
@@ -174,12 +193,12 @@ execution state; `plan.md` remains authoritative for architectural decisions.
 
 ## Next-session prompt
 
-> Inicie uma sessão nova após o milestone `c303021`, que conclui o CQRS sem
-> broker do Lobby com o cancelamento autorizado e retry limitado de concorrência.
-> Confirme este handoff contra o Git e implemente somente `F3-04`: endpoints de
-> create/search/join/leave/cancel com autorização baseada em recurso, DTOs
-> explícitos, RFC 9457 e negativos HTTP. Os gates passaram com 118 testes (76 de
-> API); mantenha a idempotência HTTP em `F3-05` e não adicione broker/outbox.
+> Inicie uma sessão nova após o milestone `1e8d4b5`, que conclui `F3-04` com os
+> endpoints HTTP do Lobby, autorização por recurso, DTOs explícitos e RFC 9457.
+> Confirme este handoff contra o Git e implemente somente `F3-05`: ledger de
+> `Idempotency-Key` com hash da requisição, owner autenticado, TTL/retenção e
+> provas de repetição/conflito. Os gates passaram com 120 testes (76 de API);
+> não adicione broker/outbox, cache, paginação ou typed client.
 
 ## Milestone history
 
@@ -204,3 +223,4 @@ execution state; `plan.md` remains authoritative for architectural decisions.
 | `e3bf4e8` | CI repair: Lobby container smoke validates startup liveness without a database | Container smoke plus repository gates and 111 tests passed |
 | `a306e86` | Fase 3, item 3, ticket 2: Lobby join/leave CQRS with bounded optimistic-concurrency retry | Repository gates and 116 tests passed; deterministic PostgreSQL stale-write retry proof added |
 | `c303021` | Fase 3, item 3, ticket 3: owner-or-moderator Lobby cancellation CQRS with bounded optimistic-concurrency retry | Repository gates and 118 tests passed; authorization and concurrent-cancellation proof added |
+| `1e8d4b5` | Fase 3, item 4: Lobby create/search/join/leave/cancel HTTP endpoints | Repository gates and 120 tests passed; RFC 9457, IDOR, token-kind, and overposting coverage added |
