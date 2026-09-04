@@ -2,19 +2,24 @@
 
 Read this file before starting repository work, then verify the recorded state
 with `git status --short --branch` and `git log -1 --oneline`. Git and the
-current contents of `plan.md` remain authoritative if this document is stale.
+[implementation catalog](implementation-catalog.md) are authoritative for
+execution state; `plan.md` remains authoritative for architectural decisions.
 
 ## Current state
 
 - Branch: `main`; functional changes are synchronized with `origin/main` at
-  `e3bf4e8` (Lobby container-smoke repair); this document is the separate
-  handoff record for that milestone.
+  `a306e86` (Lobby join/leave CQRS); this document is the separate handoff
+  record at `54732c8` for that milestone.
 - Context workflow milestone: `7dd7d8f docs: add context-efficient ticket
   workflow`. Broad work now uses the repository-local
   `$squad-up-to-tickets` skill, two to five vertical tickets when splitting is
   justified, and one fresh session per ticket. The durable guide is
   [task-slicing.md](development/task-slicing.md).
-- Last functional milestone: `2674296 feat: model lobby domain aggregate`.
+- Roadmap execution catalog: `docs/implementation-catalog.md` is the compact
+  entry point for a ticket's status, dependencies, minimum reading set, and
+  evidence. Do not preload `plan.md`; open only a catalog-cited anchor when it
+  is required for a design decision.
+- Last functional milestone: `a306e86 feat: add lobby membership commands`.
 - Completed plan item: Fase 2, item 7 — Profile CRUD, player games/ranks, and
   the initial Dota 2 catalog. Profile owns the new `profile` PostgreSQL schema
   provisionally under [ADR-005](adr/ADR-005-profile-owned-catalog-seed.md).

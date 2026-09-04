@@ -6,7 +6,9 @@ security, failure-path coverage, or repository verification.
 
 A skill does not reduce context by itself. The savings come from planning once,
 executing one small ticket per fresh session, loading only relevant evidence,
-and storing durable state in the repository.
+and storing durable state in the repository. The durable entry point is the
+[implementation catalog](../implementation-catalog.md), not a full reread of
+`plan.md`.
 
 ## When to split
 
@@ -28,8 +30,10 @@ single ticket.
 1. Create the ticket map once. Order it so architecture, ownership, and security
    uncertainties are resolved before dependent implementation.
 2. Start a fresh Codex session for one ticket. Do not preload later tickets.
-3. Verify `docs/session-handoff.md` against Git, then read the exact `plan.md`
-   section and only the relevant ADRs, threat-model entries, and affected code.
+3. Verify `docs/session-handoff.md` against Git, then locate the exact ID in
+   the implementation catalog. Read only its listed ADRs, threat-model entries,
+   and affected code. Open the cited `plan.md` anchor only when the catalog says
+   it is needed for a design decision; never preload the whole plan.
 4. State the outcome and, where required, the business invariant, trust
    boundary, failure paths, and assumptions before editing.
 5. Implement the smallest vertical slice and use focused tests during the edit
@@ -67,9 +71,10 @@ HTTP result.
 
 ## Context budget
 
-- For an atomic ticket, begin with the handoff and the affected code. Read an
-  ADR, threat-model entry, plan section, or skill only when the ticket's
-  boundary requires it; use the heading or exact range, never a broad dump.
+- For an atomic ticket, begin with the handoff, its catalog block, and the
+  affected code. Read an ADR, threat-model entry, plan anchor, or skill only
+  when that ticket's boundary requires it; use a heading or exact range, never
+  a broad dump.
 - Prefer `rg`, narrow file ranges, focused diffs, and test filters while
   investigating.
 - Exclude agent worktrees, `bin/`, `obj/`, generated outputs, and unrelated user

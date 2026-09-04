@@ -18,8 +18,10 @@ baseline.
   task, announce the change and perform a final, read-only diff review with a
   different provider/model when available. Report the reviewer, findings,
   unresolved risks, and verification results before handoff.
-- Read the relevant ADRs in `docs/adr/`, the initial threat model in
-  `docs/threat-model/`, and the affected section of `plan.md`.
+- Read the matching block in `docs/implementation-catalog.md`, then only its
+  listed ADRs, threat-model entries, and affected code. Read the cited section
+  of `plan.md` only when that block requires original architectural context;
+  never preload the whole plan.
 - State the business invariant, trust boundary, failure paths, and assumptions
   before changing authentication, concurrency, messaging, migrations, or
   external effects.
@@ -33,8 +35,12 @@ baseline.
 - When a request spans multiple bounded contexts or independently verifiable
   outcomes, use `$squad-up-to-tickets` before implementation. Keep an already
   atomic request as one ticket; otherwise produce two to five vertical tickets.
-- Execute one ticket per fresh session. Read only its handoff, exact plan
-  section, relevant ADR/threat-model entries, and affected files.
+- Treat `docs/implementation-catalog.md` as the executable roadmap index. Give
+  each new vertical ticket a stable derived ID there before implementation, and
+  update its state/evidence at the milestone.
+- Execute one ticket per fresh session. Read only its handoff, catalog block,
+  listed ADR/threat-model entries, affected files, and any catalog-cited plan
+  anchor needed for a decision.
 - Keep tool output targeted: exclude agent worktrees, `bin/`, `obj/`, generated
   artifacts, broad document dumps, and full diffs unless required. Summarize
   verification output after checking the actual result.

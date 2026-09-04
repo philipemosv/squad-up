@@ -11,13 +11,18 @@ asks for implementation.
 ## Build the map
 
 1. Verify `docs/session-handoff.md` against Git.
-2. Read only the exact `plan.md` section, ADRs, threat-model entries, and source
-   files needed to identify boundaries and dependencies.
+2. Read the matching block in `docs/implementation-catalog.md` first, then only
+   the ADRs, threat-model entries, source files, and (when explicitly cited)
+   exact `plan.md` anchor needed to identify boundaries and dependencies. Do not
+   read the plan as a whole.
 3. If the request already has one bounded context and one verifiable outcome,
    return one ticket. Otherwise create two to five ordered vertical tickets.
 4. Resolve architectural or security uncertainty before dependent behavior.
 5. Recommend the currently available provider/model and reasoning effort for
    each ticket as required by `AGENTS.md`.
+6. Assign stable derived ticket IDs in the catalog and update the active ID,
+   evidence, and next ID at the milestone; do not duplicate long-form plan
+   rationale in tickets.
 
 Prefer targeted searches and file ranges. Exclude `.claude/`, `bin/`, `obj/`,
 generated artifacts, broad document dumps, and full diffs unless they are
