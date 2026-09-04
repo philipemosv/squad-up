@@ -5,6 +5,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Npgsql;
+using SquadUp.LobbyService.Application;
 using SquadUp.LobbyService.Domain;
 using SquadUp.LobbyService.Infrastructure;
 
@@ -166,6 +167,77 @@ public sealed class LobbyPersistenceTests : IClassFixture<LobbyDatabaseFixture>
 
         staleLobby.Cancel();
         await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => second.SaveChangesAsync(timeout.Token));
+    }
+
+    [Fact]
+    public async Task CreateCommandPersistsARecruitingLobbyOnlyForActiveCatalogValues()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await using var services = CreateServices();
+        await using var scope = services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<LobbyDbContext>();
+        var commands = scope.ServiceProvider.GetRequiredService<ILobbyCommandService>();
+        await context.Database.MigrateAsync(timeout.Token);
+
+        var created = await commands.CreateAsync(
+            Guid.NewGuid(),
+            new CreateLobbyRequest(5, " DOTA2 ", 2, 5),
+            timeout.Token);
+        var unknownGame = await commands.CreateAsync(
+            Guid.NewGuid(),
+            new CreateLobbyRequest(5, "unknown", 1, null),
+            timeout.Token);
+        var unknownRank = await commands.CreateAsync(
+            Guid.NewGuid(),
+            new CreateLobbyRequest(5, "dota2", 9, null),
+            timeout.Token);
+        var invalidCapacity = await commands.CreateAsync(
+            Guid.NewGuid(),
+            new CreateLobbyRequest(1, "dota2", 1, null),
+            timeout.Token);
+
+        Assert.Equal(CreateLobbyOutcome.Success, created.Outcome);
+        Assert.NotNull(created.LobbyId);
+        Assert.Equal(CreateLobbyOutcome.GameNotFound, unknownGame.Outcome);
+        Assert.Equal(CreateLobbyOutcome.RankTierNotFound, unknownRank.Outcome);
+        Assert.Equal(CreateLobbyOutcome.ValidationFailed, invalidCapacity.Outcome);
+
+        var lobby = await context.Lobbies.SingleAsync(candidate => candidate.Id == created.LobbyId, timeout.Token);
+        Assert.Equal(LobbyStatus.Recruiting, lobby.Status);
+        Assert.Equal("dota2", lobby.RankRequirement.GameId);
+        Assert.Equal(2, lobby.RankRequirement.MinimumOrdinal);
+        Assert.Equal(5, lobby.RankRequirement.MaximumOrdinal);
+    }
+
+    [Fact]
+    public async Task SearchQueryProjectsOnlyRecruitingLobbySummariesWithoutTrackingEntities()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await using var services = CreateServices();
+        await using var scope = services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<LobbyDbContext>();
+        var commands = scope.ServiceProvider.GetRequiredService<ILobbyCommandService>();
+        var queries = scope.ServiceProvider.GetRequiredService<ILobbyQueryService>();
+        await context.Database.MigrateAsync(timeout.Token);
+
+        var recruiting = await commands.CreateAsync(
+            Guid.NewGuid(),
+            new CreateLobbyRequest(5, "dota2", 1, null),
+            timeout.Token);
+        var cancelled = new Lobby(Guid.NewGuid(), Guid.NewGuid(), 5, new RankRequirement("dota2", 1));
+        cancelled.Cancel();
+        context.Lobbies.Add(cancelled);
+        await context.SaveChangesAsync(timeout.Token);
+        context.ChangeTracker.Clear();
+
+        var summaries = await queries.SearchRecruitingAsync("dota2", timeout.Token);
+
+        var summary = Assert.Single(summaries, summary => summary.LobbyId == recruiting.LobbyId);
+        Assert.Equal(5, summary.Capacity);
+        Assert.Equal(0, summary.MembersCount);
+        Assert.Equal("dota2", summary.GameId);
+        Assert.DoesNotContain(summaries, summary => summary.LobbyId == cancelled.Id);
+        Assert.Empty(context.ChangeTracker.Entries());
     }
 
     [Theory]

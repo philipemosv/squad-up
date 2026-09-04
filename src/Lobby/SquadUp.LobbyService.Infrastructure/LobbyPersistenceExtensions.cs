@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
 using Npgsql;
+using SquadUp.LobbyService.Application;
 
 namespace SquadUp.LobbyService.Infrastructure;
 
@@ -37,6 +38,9 @@ public static class LobbyPersistenceExtensions
                 "lobby_database",
                 failureStatus: HealthStatus.Unhealthy,
                 tags: ["ready"]);
+
+        services.AddScoped<ILobbyCommandService, LobbyCommandService>();
+        services.AddScoped<ILobbyQueryService, LobbyQueryService>();
 
         return services;
     }
