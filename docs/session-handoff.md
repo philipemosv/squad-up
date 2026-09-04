@@ -8,7 +8,7 @@ execution state; `plan.md` remains authoritative for architectural decisions.
 ## Current state
 
 - Branch: `main`; functional changes are synchronized with `origin/main` at
-  `4b501eb` (Lobby keyset pagination and minimized search projections). This
+  `54d542b` (50-way Lobby join race proof and bounded concurrency retry). This
   document is the separate handoff record for that milestone.
 - Context workflow milestone: `7dd7d8f docs: add context-efficient ticket
   workflow`. Broad work now uses the repository-local
@@ -214,8 +214,24 @@ execution state; `plan.md` remains authoritative for architectural decisions.
   created or changing status between pages follow normal keyset semantics.
   Caching, broker/outbox, member pagination, and API-to-Lobby typed-client work
   remain out of scope.
-- Next task: Fase 3, item 7 (`F3-07`) — a 50-way concurrent join proof that
-  demonstrates no overbooking and exactly one local completion fact.
+- Completed plan item: Fase 3, item 7 (`F3-07`) — a PostgreSQL integration
+  proof starts 50 independent Join commands against a five-seat Lobby. Exactly
+  five succeed; the remaining 45 reload the terminal `Full` state and receive
+  deterministic domain rejections. The `xmin` retry is bounded by aggregate
+  capacity so it can observe every possible fill and one terminal read; it
+  never uses an external or unbounded retry.
+- Completion-fact evidence: the test interceptor records `LobbyCompleted` only
+  after successful `SaveChanges`; it observes exactly one fact for the Lobby.
+  The persisted aggregate has status `Full`, `MembersCount` 5, and exactly five
+  membership rows—there is no overbooking.
+- Verification: focused 50-way proof passed; the Lobby integration suite passed
+  19 tests; locked restore, formatter verification, Release CI build with zero
+  warnings, and the complete suite passed — 124 tests, including 76 API
+  integration tests.
+- Next task: Fase 3, item 8 (`F3-08`) — typed API→Lobby client with delegated
+  JWT, bounded timeouts, and circuit-breaker behavior. Do not add automatic
+  retries for Lobby commands unless an established Idempotency-Key contract
+  makes the retry safe.
 - CI repair: the Lobby container smoke now supplies an ephemeral, credential-free
   valid connection string solely for startup validation and probes `/health/live`.
   It no longer claims database readiness when no PostgreSQL container exists;
@@ -238,6 +254,7 @@ execution state; `plan.md` remains authoritative for architectural decisions.
 
 | Milestone commit | Completed outcome | Verification |
 | --- | --- | --- |
+| `54d542b` | F3-07: 50-way Lobby join race / no overbooking | Full suite: 124 passed |
 | `088e87d` | Lobby service containerized with a pinned chiseled, non-root image | Repository gates and container smoke passed |
 | `d180257` | Fase 1 items 6–7: Testcontainers platform fixture, integration smoke, configuration validation, and User Secrets guidance | Repository gates and local platform integration passed |
 | `a81d2aa` | Fase 2 item 1: ASP.NET Core Identity persistence baseline and expand-only PostgreSQL migration | 20 tests, migration checks, and chiseled API smoke passed |
