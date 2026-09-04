@@ -7,7 +7,7 @@ current contents of `plan.md` remain authoritative if this document is stale.
 ## Current state
 
 - Branch: `main`; tracked files are synchronized with `origin/main` after the
-  Lobby Domain aggregate milestone push.
+  Lobby persistence milestone push.
 - Context workflow milestone: `7dd7d8f docs: add context-efficient ticket
   workflow`. Broad work now uses the repository-local
   `$squad-up-to-tickets` skill, two to five vertical tickets when splitting is
@@ -92,16 +92,31 @@ current contents of `plan.md` remain authoritative if this document is stale.
 - Verification: 11 focused Lobby Domain tests passed. Locked restore, formatter
   verification, Release CI build with zero warnings, and the complete suite
   passed — 103 tests, including 76 API integration tests.
-- Next task: Fase 3, item 2 — add Lobby-owned EF mappings, database constraints,
-  and a PostgreSQL concurrency token without changing the Domain rules.
+- Completed plan item: Fase 3, item 2 — Lobby-owned EF mappings, constraints,
+  local Dota 2 catalog seed, and PostgreSQL `xmin` concurrency token. The
+  `lobby` schema contains `lobbies`, `lobby_members`, `game_catalog`, and
+  `rank_tiers`; no context reads another context's schema. The aggregate's
+  persisted member count is constrained to capacity, membership has a composite
+  key, and future commands must reload/re-evaluate on optimistic conflicts.
+- Verification: focused Lobby persistence tests passed — 7 tests covering
+  migration/schema isolation, catalog seed, duplicate/invalid-count database
+  rejections, aggregate materialization, `xmin`, configuration failure, no
+  startup migration, and two idempotent-SQL replays. Locked restore, formatter
+  verification, Release CI build with zero warnings, and the complete suite
+  passed — 110 tests, including 76 API integration tests.
+- Migration safety: `001_initial_lobby.sql` is reviewed idempotent expand-only
+  SQL. Production must apply it with the dedicated migration identity before
+  enabling Lobby commands; application startup never migrates.
+- Next task: Fase 3, item 3 — add Lobby CQRS commands and queries without a
+  broker, using the local persistence boundary and bounded concurrency handling.
 
 ## Next-session prompt
 
-> Inicie uma sessão nova para a Fase 3 após o milestone `2674296` do agregado
-> Lobby Domain. Confirme este handoff contra o Git e use
-> `$squad-up-to-tickets` para o item 2: criar os mapeamentos EF do Lobby, as
-> constraints e o token de concorrência PostgreSQL, sem alterar as regras de
-> Domain. Os gates passaram com 103 testes (76 de API).
+> Inicie uma sessão nova para a Fase 3 após o milestone `1badbcd` de
+> persistência do Lobby. Confirme este handoff contra o Git e use
+> `$squad-up-to-tickets` para o item 3: implementar comandos e queries CQRS do
+> Lobby sem broker, com autorização e tratamento limitado de conflito otimista.
+> Os gates passaram com 110 testes (76 de API).
 
 ## Milestone history
 
@@ -121,3 +136,4 @@ current contents of `plan.md` remain authoritative if this document is stale.
 | `fcbbf6c` | Fase 2 item 8, ticket 3: structured audit events for Identity security actions | Repository gates and 92 tests passed; anonymous/antiforgery negatives and Restricted-field exclusion coverage added |
 | `83f8bfe` | Fase 2, item 9: Discord OAuth in-memory HTTP double verifies the authenticated authorization-code token request | Repository gates and 92 tests passed; 12 focused OAuth tests passed |
 | `2674296` | Fase 3, item 1: Lobby aggregate, rank value objects, participant snapshots, and explicit state transitions | Repository gates and 103 tests passed; 11 focused Domain tests passed |
+| `1badbcd` | Fase 3, item 2: Lobby EF persistence, local catalog, constraints, migration SQL, and `xmin` | Repository gates and 110 tests passed; 7 focused Lobby persistence tests passed |
