@@ -1,10 +1,14 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using SquadUp.LobbyService.Application;
 using SquadUp.LobbyService.Domain;
 
 namespace SquadUp.LobbyService.Infrastructure;
 
-internal sealed class LobbyCommandService(LobbyDbContext context) : ILobbyCommandService
+internal sealed class LobbyCommandService(
+    LobbyDbContext context,
+    IAuthorizationService authorization) : ILobbyCommandService
 {
     public async Task<CreateLobbyResult> CreateAsync(
         Guid ownerPlayerId,
@@ -117,6 +121,72 @@ internal sealed class LobbyCommandService(LobbyDbContext context) : ILobbyComman
         }
 
         return ChangeMembershipAsync(lobbyId, lobby => lobby.RemoveMember(playerId), cancellationToken);
+    }
+
+    public async Task<LobbyCancellationResult> CancelAsync(
+        Guid lobbyId,
+        ClaimsPrincipal actor,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(actor);
+
+        if (lobbyId == Guid.Empty)
+        {
+            return LobbyCancellationResult.Failed(
+                LobbyCancellationOutcome.ValidationFailed,
+                "Lobby id is required.");
+        }
+
+        const int maximumAttempts = 2;
+        for (var attempt = 0; attempt < maximumAttempts; attempt++)
+        {
+            var lobby = await context.Lobbies
+                .SingleOrDefaultAsync(candidate => candidate.Id == lobbyId, cancellationToken);
+            if (lobby is null)
+            {
+                return LobbyCancellationResult.Failed(
+                    LobbyCancellationOutcome.LobbyNotFound,
+                    "Lobby was not found.");
+            }
+
+            var authorizationResult = await authorization.AuthorizeAsync(
+                actor,
+                new LobbyAuthorizationResource(lobby.OwnerPlayerId),
+                LobbyInternalAuthenticationExtensions.OwnerOrModeratorPolicy);
+            if (!authorizationResult.Succeeded)
+            {
+                return LobbyCancellationResult.Failed(
+                    LobbyCancellationOutcome.Forbidden,
+                    "The actor is not allowed to cancel this lobby.");
+            }
+
+            try
+            {
+                lobby.Cancel();
+            }
+            catch (InvalidOperationException exception)
+            {
+                return LobbyCancellationResult.Failed(LobbyCancellationOutcome.Rejected, exception.Message);
+            }
+
+            try
+            {
+                await context.SaveChangesAsync(cancellationToken);
+                return LobbyCancellationResult.Success();
+            }
+            catch (DbUpdateConcurrencyException) when (attempt < maximumAttempts - 1)
+            {
+                context.ChangeTracker.Clear();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                return LobbyCancellationResult.Failed(
+                    LobbyCancellationOutcome.ConcurrencyConflict,
+                    "Lobby changed concurrently; retry the command with current state.");
+            }
+        }
+
+        throw new InvalidOperationException("The bounded cancellation retry loop completed unexpectedly.");
     }
 
     private async Task<LobbyMembershipResult> ChangeMembershipAsync(

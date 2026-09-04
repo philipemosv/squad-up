@@ -77,11 +77,13 @@ Aceite: prova de capacidade sob corrida e respostas 401/403/409/503 corretas.
 
 ### F3-01 — aggregate, value objects e transitions — Concluído
 ### F3-02 — EF mappings, constraints e concorrência — Concluído
-### F3-03 — CQRS sem broker — Em andamento
+### F3-03 — CQRS sem broker — Concluído
 
 `F3-03-01` criação/busca e `F3-03-02` join/leave com retry limitado de `xmin`
-estão concluídos. **Próximo: `F3-03-03`**, cancelamento CQRS usando o harness
-owner-or-moderator; excluir endpoints, idempotência HTTP, broker e outbox.
+estão concluídos. `F3-03-03` concluiu o cancelamento com autorização
+owner-or-moderator sobre o estado atual e retry limitado de `xmin`; os testes
+provam negação a outro jogador, autorização de moderador e reavaliação após
+uma corrida. Endpoints, idempotência HTTP, broker e outbox continuam excluídos.
 
 ### F3-04 — endpoints create/search/join/leave/cancel — Pendente
 ### F3-05 — ledger HTTP Idempotency-Key — Pendente

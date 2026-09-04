@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
@@ -289,6 +290,86 @@ public sealed class LobbyPersistenceTests : IClassFixture<LobbyDatabaseFixture>
     }
 
     [Fact]
+    public async Task CancelCommandAuthorizesCurrentOwnerOrModeratorBeforePersistingTheTransition()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await using var services = CreateServices();
+        await using var scope = services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<LobbyDbContext>();
+        var commands = scope.ServiceProvider.GetRequiredService<ILobbyCommandService>();
+        await context.Database.MigrateAsync(timeout.Token);
+
+        var ownerId = Guid.NewGuid();
+        var differentPlayerId = Guid.NewGuid();
+        var ownerLobby = new Lobby(Guid.NewGuid(), ownerId, 2, new RankRequirement("dota2", 1));
+        var moderatorLobby = new Lobby(Guid.NewGuid(), ownerId, 2, new RankRequirement("dota2", 1));
+        var terminalLobby = new Lobby(Guid.NewGuid(), ownerId, 2, new RankRequirement("dota2", 1));
+        terminalLobby.Cancel();
+        context.Lobbies.AddRange(ownerLobby, moderatorLobby, terminalLobby);
+        await context.SaveChangesAsync(timeout.Token);
+
+        var owner = await commands.CancelAsync(ownerLobby.Id, CreateActor(ownerId, "Player"), timeout.Token);
+        var differentPlayer = await commands.CancelAsync(
+            moderatorLobby.Id,
+            CreateActor(differentPlayerId, "Player"),
+            timeout.Token);
+        var moderator = await commands.CancelAsync(
+            moderatorLobby.Id,
+            CreateActor(differentPlayerId, "Moderator"),
+            timeout.Token);
+        var missing = await commands.CancelAsync(Guid.NewGuid(), CreateActor(ownerId, "Player"), timeout.Token);
+        var invalid = await commands.CancelAsync(Guid.Empty, CreateActor(ownerId, "Player"), timeout.Token);
+        var terminal = await commands.CancelAsync(terminalLobby.Id, CreateActor(ownerId, "Player"), timeout.Token);
+
+        Assert.Equal(LobbyCancellationOutcome.Success, owner.Outcome);
+        Assert.Equal(LobbyCancellationOutcome.Forbidden, differentPlayer.Outcome);
+        Assert.Equal(LobbyCancellationOutcome.Success, moderator.Outcome);
+        Assert.Equal(LobbyCancellationOutcome.LobbyNotFound, missing.Outcome);
+        Assert.Equal(LobbyCancellationOutcome.ValidationFailed, invalid.Outcome);
+        Assert.Equal(LobbyCancellationOutcome.Rejected, terminal.Outcome);
+
+        context.ChangeTracker.Clear();
+        var lobbies = await context.Lobbies.ToDictionaryAsync(lobby => lobby.Id, timeout.Token);
+        Assert.Equal(LobbyStatus.Cancelled, lobbies[ownerLobby.Id].Status);
+        Assert.Equal(LobbyStatus.Cancelled, lobbies[moderatorLobby.Id].Status);
+        Assert.Equal(LobbyStatus.Cancelled, lobbies[terminalLobby.Id].Status);
+    }
+
+    [Fact]
+    public async Task ConcurrentCancellationsReloadAndReevaluateTheLobbyTransition()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var interceptor = new SynchronizeFirstTwoCancellationSavesInterceptor();
+        await using var services = CreateServices(interceptor);
+        var ownerId = Guid.NewGuid();
+        Guid lobbyId;
+        await using (var setupScope = services.CreateAsyncScope())
+        {
+            var context = setupScope.ServiceProvider.GetRequiredService<LobbyDbContext>();
+            await context.Database.MigrateAsync(timeout.Token);
+            var createdLobby = new Lobby(Guid.NewGuid(), ownerId, 2, new RankRequirement("dota2", 1));
+            context.Lobbies.Add(createdLobby);
+            await context.SaveChangesAsync(timeout.Token);
+            lobbyId = createdLobby.Id;
+        }
+
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var first = CancelInSeparateScopeAsync(services, lobbyId, ownerId, start.Task, timeout.Token);
+        var second = CancelInSeparateScopeAsync(services, lobbyId, ownerId, start.Task, timeout.Token);
+        start.SetResult();
+
+        var results = await Task.WhenAll(first, second);
+
+        Assert.Contains(results, result => result.Outcome == LobbyCancellationOutcome.Success);
+        Assert.Contains(results, result => result.Outcome == LobbyCancellationOutcome.Rejected);
+        Assert.Equal(2, interceptor.CancellationSaveCount);
+        await using var verifyScope = services.CreateAsyncScope();
+        var verifyContext = verifyScope.ServiceProvider.GetRequiredService<LobbyDbContext>();
+        var lobby = await verifyContext.Lobbies.SingleAsync(candidate => candidate.Id == lobbyId, timeout.Token);
+        Assert.Equal(LobbyStatus.Cancelled, lobby.Status);
+    }
+
+    [Fact]
     public async Task ConcurrentJoinsReloadAndReevaluateTheLobbyWithoutOverbooking()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
@@ -382,6 +463,7 @@ public sealed class LobbyPersistenceTests : IClassFixture<LobbyDatabaseFixture>
         }
 
         services.AddLobbyPersistence(configuration);
+        services.AddLobbyInternalAuthentication(configuration);
 
         return services.BuildServiceProvider(validateScopes: true);
     }
@@ -401,6 +483,29 @@ public sealed class LobbyPersistenceTests : IClassFixture<LobbyDatabaseFixture>
             new JoinLobbyRequest(Guid.NewGuid().ToString("N"), "Concurrent Player", "dota2", 1),
             cancellationToken);
     }
+
+    private static async Task<LobbyCancellationResult> CancelInSeparateScopeAsync(
+        ServiceProvider services,
+        Guid lobbyId,
+        Guid ownerId,
+        Task start,
+        CancellationToken cancellationToken)
+    {
+        await start;
+        await using var scope = services.CreateAsyncScope();
+        var commands = scope.ServiceProvider.GetRequiredService<ILobbyCommandService>();
+        return await commands.CancelAsync(lobbyId, CreateActor(ownerId, "Player"), cancellationToken);
+    }
+
+    private static ClaimsPrincipal CreateActor(Guid actorId, string role) => new(new ClaimsIdentity(
+        [
+            new Claim("sub", actorId.ToString("D")),
+            new Claim("role", role),
+            new Claim("scope", LobbyInternalAuthenticationExtensions.WritePolicy)
+        ],
+        "Test",
+        "sub",
+        "role"));
 
     private sealed class SynchronizeFirstTwoMembershipSavesInterceptor : SaveChangesInterceptor
     {
@@ -425,6 +530,40 @@ public sealed class LobbyPersistenceTests : IClassFixture<LobbyDatabaseFixture>
             if (membershipSaveNumber <= 2)
             {
                 if (membershipSaveNumber == 2)
+                {
+                    release.TrySetResult();
+                }
+
+                await release.Task.WaitAsync(cancellationToken);
+            }
+
+            return result;
+        }
+    }
+
+    private sealed class SynchronizeFirstTwoCancellationSavesInterceptor : SaveChangesInterceptor
+    {
+        private readonly TaskCompletionSource release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int cancellationSaveCount;
+
+        public int CancellationSaveCount => Volatile.Read(ref cancellationSaveCount);
+
+        public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(
+            DbContextEventData eventData,
+            InterceptionResult<int> result,
+            CancellationToken cancellationToken = default)
+        {
+            var isCancellationSave = eventData.Context?.ChangeTracker.Entries<Lobby>()
+                .Any(entry => entry.State == EntityState.Modified && entry.Entity.Status == LobbyStatus.Cancelled) == true;
+            if (!isCancellationSave)
+            {
+                return result;
+            }
+
+            var cancellationSaveNumber = Interlocked.Increment(ref cancellationSaveCount);
+            if (cancellationSaveNumber <= 2)
+            {
+                if (cancellationSaveNumber == 2)
                 {
                     release.TrySetResult();
                 }

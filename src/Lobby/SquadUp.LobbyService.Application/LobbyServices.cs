@@ -1,3 +1,5 @@
+using System.Security.Claims;
+
 namespace SquadUp.LobbyService.Application;
 
 public interface ILobbyCommandService
@@ -16,6 +18,11 @@ public interface ILobbyCommandService
     public Task<LobbyMembershipResult> LeaveAsync(
         Guid lobbyId,
         Guid playerId,
+        CancellationToken cancellationToken);
+
+    public Task<LobbyCancellationResult> CancelAsync(
+        Guid lobbyId,
+        ClaimsPrincipal actor,
         CancellationToken cancellationToken);
 }
 

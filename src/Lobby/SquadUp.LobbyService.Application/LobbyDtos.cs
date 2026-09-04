@@ -54,6 +54,26 @@ public sealed record LobbyMembershipResult(
         new(outcome, error);
 }
 
+public enum LobbyCancellationOutcome
+{
+    Success,
+    LobbyNotFound,
+    ValidationFailed,
+    Forbidden,
+    Rejected,
+    ConcurrencyConflict
+}
+
+public sealed record LobbyCancellationResult(
+    LobbyCancellationOutcome Outcome,
+    string? Error = null)
+{
+    public static LobbyCancellationResult Success() => new(LobbyCancellationOutcome.Success);
+
+    public static LobbyCancellationResult Failed(LobbyCancellationOutcome outcome, string error) =>
+        new(outcome, error);
+}
+
 /// <summary>
 /// Contains only the deliberately publishable fields needed to discover a recruiting lobby.
 /// </summary>
