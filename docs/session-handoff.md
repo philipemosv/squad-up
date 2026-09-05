@@ -8,7 +8,7 @@ execution state; `plan.md` remains authoritative for architectural decisions.
 ## Current state
 
 - Branch: `main`; functional changes are synchronized with `origin/main` at
-  `e7db5dc` (resilient typed API-to-Lobby client). This document is the separate
+  `c7cc5fa` (graceful API-to-Lobby degradation). This document is the separate
   handoff record for that milestone.
 - Context workflow milestone: `7dd7d8f docs: add context-efficient ticket
   workflow`. Broad work now uses the repository-local
@@ -243,9 +243,24 @@ execution state; `plan.md` remains authoritative for architectural decisions.
   nor exposes a public client contract. It adds no API facade, outbox, cache,
   or automatic command retry. The next slice owns graceful translation of
   internal dependency failures to public behavior.
-- Next task: Fase 3, item 9 (`F3-09`) — graceful degradation for internal reads
-  and commands, preserving accurate failures without falsely reporting command
-  completion.
+- Completed plan item: Fase 3, item 9 (`F3-09-01`) — graceful API-to-Lobby
+  degradation. The public API now proves delegated Lobby search and cancellation
+  behavior: connection failures, timeout, open circuit, and Lobby 5xx responses
+  become sanitized `503 lobby_temporarily_unavailable` Problem Details. A failed
+  cancellation is never represented as a `204`; browser authentication and
+  antiforgery remain at the API boundary, while the short-lived delegated JWT
+  remains the only credential sent to Lobby.
+- Verification: the focused API Lobby-client/gateway suite passed 7 tests,
+  including unavailable read, unavailable command, and sensitive-error
+  exclusion. Locked restore, formatter verification, Release CI build, and the
+  complete suite passed — 131 tests, including 83 API integration tests.
+- Limits: this ticket intentionally exposes only search and cancellation as
+  representative read/command paths. Cache-stale reads, create/join forwarding,
+  and broader public Lobby facade contracts remain out of scope.
+- Next task: Fase 4 cache distribuído. Antes de implementar, use o skill
+  `$squad-up-to-tickets` para dividir F4 em dois a cinco tickets verticais e
+  registre seus IDs no catálogo; então execute somente o primeiro em uma sessão
+  nova.
 - CI repair: the Lobby container smoke now supplies an ephemeral, credential-free
   valid connection string solely for startup validation and probes `/health/live`.
   It no longer claims database readiness when no PostgreSQL container exists;
@@ -257,16 +272,16 @@ execution state; `plan.md` remains authoritative for architectural decisions.
 
 ## Next-session prompt
 
-> Inicie uma sessão nova após o milestone `e7db5dc`, que conclui `F3-08` com o
-> cliente tipado API→Lobby, JWT delegado e pipelines resilientes. Confirme este
-> handoff contra o Git e implemente somente `F3-09`: degradação graciosa das
-> leituras e comandos internos, sem falso sucesso para comandos. Os gates
-> passaram com 129 testes (81 de API); não altere o contrato de retry de comando.
+> Inicie uma sessão nova após o milestone `c7cc5fa`, que conclui `F3-09` com
+> degradação sanitizada API→Lobby e sem falso sucesso para cancelamento. Gates
+> completos passaram com 131 testes (83 de API). Use `$squad-up-to-tickets`
+> para fatiar F4 e execute somente o primeiro ticket criado.
 
 ## Milestone history
 
 | Milestone commit | Completed outcome | Verification |
 | --- | --- | --- |
+| `c7cc5fa` | F3-09: graceful API-to-Lobby degradation | Full suite: 131 passed |
 | `e7db5dc` | F3-08: resilient typed API-to-Lobby client | Full suite: 129 passed |
 | `54d542b` | F3-07: 50-way Lobby join race / no overbooking | Full suite: 124 passed |
 | `088e87d` | Lobby service containerized with a pinned chiseled, non-root image | Repository gates and container smoke passed |
