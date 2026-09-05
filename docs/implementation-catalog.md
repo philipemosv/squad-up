@@ -178,7 +178,7 @@ Fronteira: projeções de leitura; cache não autoriza nem reserva vagas.
 Dependências: F3-04/F3-06. Ler: TM-11/TM-12, classificação e `plan.md` §8/§16 Fase 4.
 Aceite: Redis indisponível não afeta a correção de join.
 
-### F4-01 — fundação HybridCache/Redis L2 — Pendente
+### F4-01 — fundação HybridCache/Redis L2 — Concluído
 
 Resultado: o host Lobby compõe `HybridCache` L1/L2 sobre Redis e mantém uma
 abstração de leitura apta a falhar sem tornar Redis requisito de disponibilidade.
@@ -192,9 +192,13 @@ integração Redis. Fora: key policy, invalidação, lease, fallback e métricas
 Aceite: prova com Redis real confirma L1/L2 para uma projeção allowlisted e
 prova negativa confirma que a indisponibilidade não bloqueia o host nem um join.
 Dependências: F3-04/F3-06. Modelo: GPT-5.6 Terra/medium; Gemini 3.8 Flash/
-medium como revisor alternativo. Concluído quando a composição e essas provas
-passarem os gates completos. Prompt: implementar somente F4-01; ler este bloco,
-TM-11/TM-12, classificação, `plan.md` §8 e os hosts/testes Lobby afetados.
+medium como revisor alternativo. Concluído: o host compõe `HybridCache` e
+Redis L2 por configuração, e um adaptador aceita somente projeções de leitura
+explicitamente allowlisted. Falha da camada de cache retorna ao loader sem
+mascarar sua própria falha. Testes com Redis real provam hit L1 e L2 entre
+hosts, e Redis inacessível não bloqueia create/join. Evidência: testes focados
+do Lobby e gates completos aprovados (132 testes). Chaves, TTL, invalidação,
+lease, stale e métricas permanecem nos tickets seguintes.
 
 ### F4-02 — chaves, TTL/jitter e invalidação local — Pendente
 

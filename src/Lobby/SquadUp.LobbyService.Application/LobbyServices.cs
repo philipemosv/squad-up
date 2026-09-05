@@ -32,3 +32,23 @@ public interface ILobbyQueryService
         SearchRecruitingLobbiesRequest request,
         CancellationToken cancellationToken);
 }
+
+/// <summary>
+/// Marks a minimized projection that is explicitly suitable for the Lobby read cache.
+/// </summary>
+public interface IAllowlistedLobbyReadProjection
+{
+}
+
+/// <summary>
+/// Provides cache-aside reads for allowlisted projections. Callers must supply
+/// server-generated keys; key construction and expiration policy are introduced separately.
+/// </summary>
+public interface ILobbyReadCache
+{
+    public Task<TProjection> GetOrCreateAsync<TProjection>(
+        string cacheKey,
+        Func<CancellationToken, ValueTask<TProjection>> factory,
+        CancellationToken cancellationToken)
+        where TProjection : class, IAllowlistedLobbyReadProjection;
+}

@@ -7,10 +7,12 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
+using SquadUp.LobbyService.Application;
 using SquadUp.LobbyService.Infrastructure;
 
 namespace SquadUp.LobbyService.IntegrationTests;
@@ -209,6 +211,79 @@ public sealed class LobbyEndpointTests : IClassFixture<LobbyDatabaseFixture>
         await AssertMemberOwnedByAuthenticatedSubjectAsync(application, lobbyId, playerId);
     }
 
+    [Fact]
+    public async Task HybridCacheUsesL1AndRedisL2ForAnAllowlistedProjectionAndRedisOutageDoesNotBlockJoin()
+    {
+        var cacheKey = $"f4-01:cache-projection:{Guid.CreateVersion7():D}";
+        await using (var firstApplication = new LobbyApplication(
+            fixture.PostgreSql.GetConnectionString(),
+            fixture.Redis.GetConnectionString()))
+        {
+            var firstCache = firstApplication.Services.GetRequiredService<ILobbyReadCache>();
+            var distributedCache = firstApplication.Services.GetRequiredService<IDistributedCache>();
+            Assert.Contains("RedisCache", distributedCache.GetType().Name, StringComparison.Ordinal);
+            var factoryCalls = 0;
+            var first = await firstCache.GetOrCreateAsync(
+                cacheKey,
+                _ =>
+                {
+                    factoryCalls++;
+                    return ValueTask.FromResult(new CacheProbeProjection("allowlisted"));
+                },
+                CancellationToken.None);
+            var l1 = await firstCache.GetOrCreateAsync(
+                cacheKey,
+                _ => ValueTask.FromException<CacheProbeProjection>(new InvalidOperationException("L1 cache miss")),
+                CancellationToken.None);
+
+            Assert.Equal("allowlisted", first.Value);
+            Assert.Equal(first, l1);
+            Assert.Equal(1, factoryCalls);
+            await Task.Delay(TimeSpan.FromMilliseconds(100));
+            Assert.NotNull(await distributedCache.GetAsync(cacheKey));
+        }
+
+        await using (var secondApplication = new LobbyApplication(
+            fixture.PostgreSql.GetConnectionString(),
+            fixture.Redis.GetConnectionString()))
+        {
+            var secondCache = secondApplication.Services.GetRequiredService<ILobbyReadCache>();
+            var l2 = await secondCache.GetOrCreateAsync(
+                cacheKey,
+                _ => ValueTask.FromException<CacheProbeProjection>(new InvalidOperationException("L2 cache miss")),
+                CancellationToken.None);
+
+            Assert.Equal("allowlisted", l2.Value);
+        }
+
+        await using var offlineApplication = new LobbyApplication(
+            fixture.PostgreSql.GetConnectionString(),
+            "localhost:1,abortConnect=false,connectTimeout=25,syncTimeout=25");
+        await offlineApplication.MigrateAsync();
+        using var client = offlineApplication.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
+        var ownerId = Guid.CreateVersion7();
+        var playerId = Guid.CreateVersion7();
+        var ownerToken = offlineApplication.CreateDelegatedToken(ownerId, "lobby.write");
+        var playerToken = offlineApplication.CreateDelegatedToken(playerId, "lobby.write");
+        using var create = await SendJsonAsync(client, HttpMethod.Post, "/lobbies", ownerToken, new
+        {
+            capacity = 2,
+            gameId = "dota2",
+            minimumRankOrdinal = 1
+        }, "redis-outage-create");
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        var lobbyId = GetLobbyId(await create.Content.ReadAsStringAsync());
+
+        using var join = await SendJsonAsync(client, HttpMethod.Post, $"/lobbies/{lobbyId}/members", playerToken, new
+        {
+            discordUserId = "synthetic-discord-id",
+            displayName = "Synthetic Player",
+            gameId = "dota2",
+            rankOrdinal = 1
+        }, "redis-outage-join");
+        Assert.Equal(HttpStatusCode.NoContent, join.StatusCode);
+    }
+
     private static async Task AssertMemberOwnedByAuthenticatedSubjectAsync(
         LobbyApplication application,
         Guid lobbyId,
@@ -276,12 +351,14 @@ public sealed class LobbyEndpointTests : IClassFixture<LobbyDatabaseFixture>
     private sealed class LobbyApplication : WebApplicationFactory<Program>
     {
         private readonly string connectionString;
+        private readonly string? redisConnectionString;
         private readonly string privateKeyPem;
         private readonly string publicKeyPem;
 
-        public LobbyApplication(string connectionString)
+        public LobbyApplication(string connectionString, string? redisConnectionString = null)
         {
             this.connectionString = connectionString;
+            this.redisConnectionString = redisConnectionString;
             using var rsa = RSA.Create(2048);
             privateKeyPem = rsa.ExportRSAPrivateKeyPem();
             publicKeyPem = rsa.ExportSubjectPublicKeyInfoPem();
@@ -298,7 +375,8 @@ public sealed class LobbyEndpointTests : IClassFixture<LobbyDatabaseFixture>
         public string CreateWorkloadToken(string scope) => CreateToken(ClientId, "workload", scope);
 
         protected override void ConfigureWebHost(IWebHostBuilder builder) => builder.ConfigureAppConfiguration((_, configuration) =>
-            configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            var values = new Dictionary<string, string?>
             {
                 ["ConnectionStrings:LobbyDatabase"] = connectionString,
                 ["InternalAuthentication:Issuer"] = Issuer,
@@ -308,7 +386,14 @@ public sealed class LobbyEndpointTests : IClassFixture<LobbyDatabaseFixture>
                 ["InternalAuthentication:AllowedScopes:0"] = "lobby.read",
                 ["InternalAuthentication:AllowedScopes:1"] = "lobby.write",
                 [$"InternalAuthentication:PublicKeys:{KeyId}"] = publicKeyPem
-            }));
+            };
+            if (!string.IsNullOrWhiteSpace(redisConnectionString))
+            {
+                values["ConnectionStrings:LobbyCache"] = redisConnectionString;
+            }
+
+            configuration.AddInMemoryCollection(values);
+        });
 
         private string CreateToken(string subject, string tokenKind, string scope)
         {
@@ -335,4 +420,7 @@ public sealed class LobbyEndpointTests : IClassFixture<LobbyDatabaseFixture>
             });
         }
     }
+
 }
+
+public sealed record CacheProbeProjection(string Value) : IAllowlistedLobbyReadProjection;

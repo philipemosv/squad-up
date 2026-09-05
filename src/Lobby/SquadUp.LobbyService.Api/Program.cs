@@ -12,6 +12,7 @@ builder.Services
     .ValidateOnStart();
 builder.Services.AddLobbyInternalAuthentication(builder.Configuration);
 builder.Services.AddLobbyPersistence(builder.Configuration);
+builder.Services.AddLobbyReadCaching(builder.Configuration);
 
 var app = builder.Build();
 app.UseSquadUpServiceDefaults();
