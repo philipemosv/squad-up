@@ -314,3 +314,4 @@ execution state; `plan.md` remains authoritative for architectural decisions.
 | `2694e65` | F4 ticket map: five ordered distributed-cache vertical slices | Documentation-only diff, local-link/anchor, and consistency checks passed |
 | `d7a33c8` | F4-01: Lobby HybridCache/Redis L2 and failure-tolerant allowlisted read adapter | Locked restore, formatter, Release build, focused Redis proof, and 132 tests passed |
 | `e742111` | F4-02: server-generated search keys, TTL/jitter and local post-commit invalidation | Locked restore, formatter, Release build, 21 focused Lobby tests, and 133 tests passed |
+| `09c2da1` | F4-03: Redis hot-key lease for recruiting search | Locked restore, formatter, Release build, 23 focused Lobby tests, and 135 tests passed |
