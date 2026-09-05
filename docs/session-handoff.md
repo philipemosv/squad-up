@@ -7,21 +7,21 @@ current state at each milestone instead of accumulating completed tickets.
 
 ## Current state
 
-- Branch: `main`; F4 ticket-map milestone `2694e65` pushed to `origin/main`.
-- Completed outcome: F4 cache distributed was sliced into five ordered vertical
-  tickets in [implementation-catalog.md](implementation-catalog.md), from
-  HybridCache/Redis L2 composition through measurement. No F4 code started.
+- Branch: `main`; F4-01 milestone `d7a33c8` pushed to `origin/main`.
+- Completed outcome: the Lobby host now composes `HybridCache` with a Redis L2
+  and an allowlisted read-projection adapter. Redis/cache failures bypass the
+  cache loader path without masking loader failures.
 - Boundaries: cache stores minimized read projections only; it neither authorizes
   nor reserves seats. `JoinLobby` revalidates persisted aggregate state even if
   a search is stale. Redis/lease failure always bypasses or limits reads, never
   blocks writes or changes correctness.
-- Documentation-only verification: `git diff --check`, local-link/anchor check
-  and full diff consistency review passed. No .NET gates ran by the approved
-  documentation-only exception. Previous functional suite is historical only.
+- Verification: locked restore, formatter verification, Release build and full
+  suite passed (132 tests); focused Lobby integration proves L1, L2 across
+  hosts, and create/join during Redis outage.
 - Current model recommendations were refreshed on 2026-09-05: GPT-5.6 Terra/
   medium for F4-01/02/05, Terra/high for F4-03, Sol/high for F4-04; Gemini 3.8
   Flash at the matching effort is the alternate reviewer.
-- Next product step: implement only `F4-01` in a fresh session, reading its
+- Next product step: implement only `F4-02` in a fresh session, reading its
   catalog block, TM-11/TM-12, data classification, `plan.md` §8, and affected
   Lobby host/Infrastructure/integration-test files. Full repository gates apply.
 
@@ -35,16 +35,16 @@ current state at each milestone instead of accumulating completed tickets.
 
 ## Next-session prompt
 
-> F4 ticket map shipped at 2694e65; documentation checks passed, no F4 code
-> started. Verify `main` and its separate handoff commit, then implement only
-> F4-01. Read this handoff, its catalog block, TM-11/TM-12, classification and
-> `plan.md` §8; run focused tests and full repository gates before its milestone.
+> F4-01 HybridCache/Redis L2 shipped at d7a33c8; locked restore, formatter,
+> Release build and 132 tests passed. Verify `main` and its separate handoff
+> commit, then implement only F4-02. Read its catalog block, TM-11/TM-12,
+> classification and `plan.md` §8; run focused tests and full repository gates.
 
 ## Milestone history
 
 | Milestone commit | Completed outcome | Verification |
 | --- | --- | --- |
-| `2694e65` | F4 ticket map: five cache vertical slices | Diff, links and consistency checks passed |
+| `d7a33c8` | F4-01: HybridCache/Redis L2 foundation | Locked restore, formatter, build and 132 tests passed |
 
 Older evidence is preserved in the archive linked above. After a milestone
 push, append its compact row to the archive and retain only the latest row
