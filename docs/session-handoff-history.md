@@ -285,6 +285,7 @@ execution state; `plan.md` remains authoritative for architectural decisions.
 
 | Milestone commit | Completed outcome | Verification |
 | --- | --- | --- |
+| `83fe785` | DEV-WF-01: compact handoff, archived history and approved documentation-only checks | Diff, links, consistency, archive and size checks passed; earlier suite: 130 passed, 1 unresolved initialization-test failure |
 | `c7cc5fa` | F3-09: graceful API-to-Lobby degradation | Full suite: 131 passed |
 | `e7db5dc` | F3-08: resilient typed API-to-Lobby client | Full suite: 129 passed |
 | `54d542b` | F3-07: 50-way Lobby join race / no overbooking | Full suite: 124 passed |

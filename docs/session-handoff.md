@@ -7,21 +7,21 @@ current state at each milestone instead of accumulating completed tickets.
 
 ## Current state
 
-- Branch: `main`; last recorded HEAD `b6ba513` (separate F3-09 handoff),
-  synchronized with `origin/main` at the start of DEV-WF-01. Verify Git again.
+- Branch: `main`; workflow milestone `83fe785` pushed to `origin/main`.
+  This document is its separate handoff update; verify Git again.
 - Last functional milestone: `c7cc5fa`, F3-09-01, graceful API-to-Lobby
   degradation. Search/cancellation failures become sanitized 503 Problem
   Details; failed cancellation never returns false success.
 - Functional verification at that commit: locked restore, format verification,
   Release CI build and all 131 tests passed (83 API integration tests).
   These are historical results, not validation of subsequent edits.
-- Local completed ticket: `DEV-WF-01`, workflow cost reduction; see the block in
-  [implementation-catalog.md](implementation-catalog.md). Local documentation
-  changes are not yet a committed/pushed milestone.
+- Completed ticket: `DEV-WF-01`, workflow cost reduction; see the block in
+  [implementation-catalog.md](implementation-catalog.md). Compact handoff,
+  archived history and the approved documentation checks shipped in `83fe785`.
 - Scope: compact startup context, archive historical detail, avoid repeated
   planning and measure usage. Security controls and required CI are unchanged.
-- Local checks: diff/archive comparison, locked restore, format verification
-  and Release CI build passed. Full suite: 130 passed, 1 failed in
+- Milestone checks: diff/links/consistency, handoff limits and archive comparison
+  passed. Earlier restore/format/Release build passed; suite: 130 passed, 1 failed in
   `InvalidLobbyServiceNameStopsHostStartup`; see DEV-WF-01 evidence.
 - Documentation-only exception approved/applied on 2026-09-05: diff, changed
   links and consistency checks; no .NET rerun. Full gates for executable changes.
@@ -39,18 +39,17 @@ current state at each milestone instead of accumulating completed tickets.
 
 ## Next-session prompt
 
-> Base: main at b6ba513; F3-09 completed at c7cc5fa with 131 tests and all gates
-> passing then. DEV-WF-01 is locally complete with approved documentation checks;
-> its earlier full suite had 130 passes and one unresolved failure. Finalize
-> the local workflow diff/commit/push without rerunning .NET for documentation.
-> Then slice F4 using squad-up-to-tickets and execute its first ticket
-> in a fresh session. Read only this handoff and the relevant catalog block.
+> DEV-WF-01 shipped at 83fe785; documentation checks passed. Earlier full suite:
+> 130 passes and one unresolved initialization-test failure (see catalog).
+> Verify main and its separate handoff commit. Slice F4 using squad-up-to-tickets,
+> register IDs, then execute its first ticket in a fresh session. Read only this
+> handoff and the relevant catalog block; do not rerun .NET for documentation.
 
 ## Milestone history
 
 | Milestone commit | Completed outcome | Verification |
 | --- | --- | --- |
-| `c7cc5fa` | F3-09: graceful API-to-Lobby degradation | Full suite: 131 passed |
+| `83fe785` | DEV-WF-01: compact context and documentation-only checks | Diff, links, consistency, archive and size checks passed |
 
 Older evidence is preserved in the archive linked above. After a milestone
 push, append its compact row to the archive and retain only the latest row
