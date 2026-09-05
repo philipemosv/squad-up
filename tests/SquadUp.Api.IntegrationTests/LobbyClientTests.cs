@@ -1,5 +1,7 @@
 using System.Net;
 using System.Security.Cryptography;
+using System.Text;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http;
@@ -143,6 +145,58 @@ public sealed class LobbyClientTests
         Assert.Single(handler.Requests);
     }
 
+    [Fact]
+    public async Task ReturnsSanitized503ForAnUnavailableReadDependency()
+    {
+        var result = await LobbyGatewayEndpoints.SendAsync(
+            new DefaultHttpContext(),
+            new ThrowingLobbyClient(new HttpRequestException("synthetic connection failure")),
+            new LobbyServiceRequest(
+                HttpMethod.Get,
+                "/lobbies",
+                Guid.CreateVersion7(),
+                [SquadUpRoles.Player],
+                ["lobby.read"]));
+
+        var response = await ExecuteAsync(result);
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, response.StatusCode);
+        Assert.Contains("lobby_temporarily_unavailable", response.Body, StringComparison.Ordinal);
+        Assert.DoesNotContain("synthetic connection failure", response.Body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task DoesNotReportAnUnavailableCommandAsCompleted()
+    {
+        var result = await LobbyGatewayEndpoints.SendAsync(
+            new DefaultHttpContext(),
+            new ThrowingLobbyClient(new HttpRequestException("synthetic connection failure")),
+            new LobbyServiceRequest(
+                HttpMethod.Post,
+                "/lobbies/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/cancel",
+                Guid.CreateVersion7(),
+                [SquadUpRoles.Player],
+                ["lobby.write"]));
+
+        var response = await ExecuteAsync(result);
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, response.StatusCode);
+        Assert.NotEqual(StatusCodes.Status204NoContent, response.StatusCode);
+        Assert.Contains("lobby_temporarily_unavailable", response.Body, StringComparison.Ordinal);
+    }
+
+    private static async Task<(int StatusCode, string Body)> ExecuteAsync(IResult result)
+    {
+        var context = new DefaultHttpContext();
+        using var services = new ServiceCollection()
+            .AddLogging()
+            .AddProblemDetails()
+            .BuildServiceProvider();
+        context.RequestServices = services;
+        await using var body = new MemoryStream();
+        context.Response.Body = body;
+        await result.ExecuteAsync(context);
+        return (context.Response.StatusCode, Encoding.UTF8.GetString(body.ToArray()));
+    }
+
     private static ServiceProvider CreateProvider(string privateKeyPem, RecordingHandler handler)
     {
         var configuration = new ConfigurationBuilder()
@@ -200,6 +254,13 @@ public sealed class LobbyClientTests
 
             return response(cancellationToken);
         }
+    }
+
+    private sealed class ThrowingLobbyClient(Exception exception) : ILobbyClient
+    {
+        public Task<HttpResponseMessage> SendAsync(
+            LobbyServiceRequest request,
+            CancellationToken cancellationToken) => Task.FromException<HttpResponseMessage>(exception);
     }
 
     private sealed record RecordedRequest(string? Uri, string? BearerToken, string? IdempotencyKey);

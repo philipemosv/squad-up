@@ -21,6 +21,7 @@ app.UseAntiforgery();
 app.MapGet("/", () => Results.Ok(new { Service = "SquadUp.Api" }));
 app.MapDiscordAuthentication();
 app.MapProfile();
+app.MapLobbyGateway();
 app.MapSquadUpHealthEndpoints();
 
 app.Run();

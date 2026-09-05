@@ -135,7 +135,15 @@ recebe uma repetição transitória com jitter. Os testes provam JWT mínimo,
 origem fixa, rejeição de rota SSRF/ator ausente, ausência de retry de comando,
 circuito aberto e timeout. Evidência: 5 testes focais; gates completos com 129
 testes aprovados.
-### F3-09 — degradação graciosa interna — Pendente
+### F3-09 — degradação graciosa interna — Concluído
+
+`F3-09-01` — tradução de indisponibilidade API→Lobby — Concluído. A API
+expõe a busca e o cancelamento como provas representativas: falhas de conexão,
+timeout, circuito aberto e respostas 5xx do Lobby retornam `503` com Problem
+Details sanitizado; uma falha de comando nunca vira `204`. O navegador continua
+autenticado na API, mutações mantêm antiforgery, e somente o JWT delegado cruza
+a fronteira. Evidência: 7 testes focados do cliente/gateway; gates completos
+com 131 testes aprovados. Cache stale, criação e join seguem fora deste ticket.
 
 ## Fase 4 — cache distribuído
 
