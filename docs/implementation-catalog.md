@@ -178,12 +178,87 @@ Fronteira: projeções de leitura; cache não autoriza nem reserva vagas.
 Dependências: F3-04/F3-06. Ler: TM-11/TM-12, classificação e `plan.md` §8/§16 Fase 4.
 Aceite: Redis indisponível não afeta a correção de join.
 
-### F4-01 — HybridCache/Redis L2 — Pendente
-### F4-02 — keys, TTL/jitter e invalidação — Pendente
-### F4-03 — lease para hot key — Pendente
-### F4-04 — stale-while-revalidate de busca — Pendente
-### F4-05 — bypass/fallback com limite — Pendente
-### F4-06 — benchmark e métricas — Pendente
+### F4-01 — fundação HybridCache/Redis L2 — Pendente
+
+Resultado: o host Lobby compõe `HybridCache` L1/L2 sobre Redis e mantém uma
+abstração de leitura apta a falhar sem tornar Redis requisito de disponibilidade.
+Invariante: cache contém somente projeções minimizadas; não decide autorização,
+ownership, reserva ou entrada. Fronteira: configuração de infraestrutura e a
+conexão Redis são confiáveis, enquanto valores e filtros de cache não são.
+Falhas: conexão, timeout ou valor inválido não podem alterar uma escrita nem
+expor dados; a primeira fatia ainda não serve stale. Arquivos prováveis:
+central package management/lock files, host Lobby, Infrastructure e fixture de
+integração Redis. Fora: key policy, invalidação, lease, fallback e métricas.
+Aceite: prova com Redis real confirma L1/L2 para uma projeção allowlisted e
+prova negativa confirma que a indisponibilidade não bloqueia o host nem um join.
+Dependências: F3-04/F3-06. Modelo: GPT-5.6 Terra/medium; Gemini 3.8 Flash/
+medium como revisor alternativo. Concluído quando a composição e essas provas
+passarem os gates completos. Prompt: implementar somente F4-01; ler este bloco,
+TM-11/TM-12, classificação, `plan.md` §8 e os hosts/testes Lobby afetados.
+
+### F4-02 — chaves, TTL/jitter e invalidação local — Pendente
+
+Resultado: busca recebe chaves versionadas e exclusivamente geradas no servidor,
+TTL com jitter limitado e invalidação local após mutação persistida. Invariante:
+uma leitura pode ficar stale até o TTL, mas `JoinLobby` sempre revalida o
+aggregate/banco. Fronteira: filtros, cursor e page size do cliente são
+normalizados, limitados e incorporados somente após validação. Falhas: key ou
+valor não reconhecido é bypassado/removido; invalidação ausente cai no TTL;
+nenhuma invalidação distribuída/outbox é antecipada. Arquivos prováveis:
+Application DTO/query, Infrastructure cache adapter/write path e testes Lobby.
+Fora: lease, stale serving, fallback Redis e subscriber/outbox. Aceite: testes
+cobrem isolamento por filtro/cursor, cardinalidade limitada, jitter nos limites,
+invalidação após mutação e projeção sem campos confidenciais desnecessários.
+Dependência: F4-01. Modelo: GPT-5.6 Terra/medium; Gemini 3.8 Flash/medium como
+revisor. Concluído quando os testes focados e gates completos passarem. Prompt:
+implementar somente F4-02, incluindo suas provas TM-11/TM-12.
+
+### F4-03 — lease Redis para hot key — Pendente
+
+Resultado: uma hot key selecionada coordena réplicas com lease curto Redis
+`SET NX PX`, token aleatório e release compare-and-delete. Invariante: lease
+reduz carga, mas nunca é requisito de corretude ou exclusividade de join.
+Fronteira: a primitive Redis e token permanecem internos; chave cliente nunca
+vira nome de lease sem normalização. Falhas: não adquirir, expirar ou perder
+Redis leva a nova tentativa L2/bypass, sem apagar lease de terceiro. Arquivos
+prováveis: Infrastructure Redis adapter, cache read path e integração Redis.
+Fora: stale response, limite DB e benchmark. Aceite: testes de contenção,
+expiração, token de release incorreto e Redis indisponível. Dependência: F4-02.
+Modelo: GPT-5.6 Terra/high; Gemini 3.8 Flash/high como revisor. Concluído
+quando as provas de concorrência e gates completos passarem. Prompt: implementar
+somente F4-03; declarar explicitamente o limite de transação e a semântica do lease.
+
+### F4-04 — busca stale e bypass/fallback limitado — Pendente
+
+Resultado: somente a busca pode retornar snapshot stale sinalizado enquanto
+revalida; sem Redis, ela usa PostgreSQL sob limite de concorrência. Invariante:
+stale não aparece em comandos, autorização, reservas ou decisões de lotação.
+Fronteira: a resposta pública é uma projeção de busca permitida; estado atual
+para mutações permanece exclusivamente no Lobby. Falhas: Redis/lease fora,
+limite esgotado, DB indisponível e refresh falho retornam a resposta/Problem
+Details segura adequada, nunca falso sucesso. Arquivos prováveis: API Lobby,
+cache adapter, query service e testes de integração/falha. Fora: telemetria
+final e benchmark. Aceite: provas de stale permitido, stale vencido, Redis fora,
+fallback limitado, refresh falho e join correto durante outage. Dependência:
+F4-03. Modelo: GPT-5.6 Sol/high; Gemini 3.8 Flash/high como revisor.
+Concluído quando os caminhos de falha e gates completos passarem. Prompt:
+implementar somente F4-04; não estender stale a create/join/cancel.
+
+### F4-05 — métricas e benchmark de hot key — Pendente
+
+Resultado: métricas de cache com cardinalidade limitada e benchmark reproduzível
+demonstram hit/miss/stale, contenção e carga inter-instância controlada.
+Invariante: nenhuma métrica usa cache key, lobby, match ou usuário como label.
+Fronteira: telemetria recebe apenas dimensões allowlisted; resultados de carga
+usam dados sintéticos. Falhas: backend de telemetria ou benchmark não bloqueia
+as rotas de negócio. Arquivos prováveis: Infrastructure/host observability,
+testes ou projeto de benchmark e documentação de evidência. Fora: mudança da
+política funcional de cache. Aceite: teste de labels permitidos, cenário hot-key
+com Redis real e registro de p95/hit ratio/stampede, incluindo Redis outage.
+Dependência: F4-04. Modelo: GPT-5.6 Terra/medium; Gemini 3.8 Flash/medium como
+revisor. Concluído quando as métricas, cenário e gates completos passarem.
+Prompt: implementar somente F4-05 e registrar evidência mensurável, sem inferir
+economia de custo.
 
 ## Fase 5 — MassTransit, Outbox e DLQ
 
