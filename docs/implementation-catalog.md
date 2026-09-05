@@ -23,6 +23,33 @@ testes prevalecem se o catálogo estiver defasado.
 **Leitura transversal:** ADR-002 para dependências; threat model e classificação
 de dados para identidade, dados, mensagens, logs ou efeitos externos.
 
+## Fluxo de desenvolvimento
+
+### DEV-WF-01 — reduzir custo recorrente de contexto — Concluído
+
+Resultado: entrada de sessão curta e protocolo de execução/medição proporcional
+ao trabalho. Contexto: fluxo de desenvolvimento; sem mudança de produto.
+Ler: `AGENTS.md`, `docs/development/task-slicing.md` e handoff atual.
+Arquivos: esses documentos, este bloco e arquivo histórico do handoff.
+Aceite: handoff com até 60 linhas/4 KB, histórico preservado fora da leitura
+inicial, regras consistentes e diff revisado. Exceção documental aprovada pelo
+usuário em 2026-09-05; gates completos preservados para mudanças executáveis.
+Dependências: nenhuma. Fora de escopo: F4, código, CI, configuração da conta,
+redução de controles de segurança e alegações de economia sem medição.
+Modelo recomendado: GPT-5.6 Terra/medium; Gemini 3.8 Flash/padrão como
+alternativa, sujeito à disponibilidade na conta (catálogos consultados em
+2026-09-05). Prompt: ler o handoff de DEV-WF-01; depois fatiar F4.
+Evidência local: handoff abaixo de 60 linhas/4 KB; conteúdo histórico preservado
+por comparação exata (exceto cabeçalho de arquivo). Diff revisado; restore
+locked, format e Release CI build passaram (zero warnings/errors). Suíte:
+130 passaram, 1 falhou em `InvalidLobbyServiceNameStopsHostStartup` (esperava
+OptionsValidationException, recebeu ObjectDisposedException). Código intocado;
+causa não investigada neste ticket. Commit do marco registrado no handoff.
+Exceção aplicada em AGENTS.md e no guia: documentação usa diff, links/âncoras
+alterados e revisão de consistência; sem nova execução .NET. A falha registrada
+permanece aberta; não impede a validação documental aprovada. Próximo passo:
+fatiar F4; consumo real ainda não medido.
+
 ## Fase 0 — decisões e skeleton
 
 Fronteira: governança/estrutura. Dependências: nenhuma. Aceite: build e

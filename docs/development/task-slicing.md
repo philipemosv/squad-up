@@ -38,14 +38,17 @@ single ticket.
    boundary, failure paths, and assumptions before editing.
 5. Implement the smallest vertical slice and use focused tests during the edit
    loop, including negative and failure cases.
-6. Review the final diff and run the complete repository gates once before the
-   milestone commit and push.
+6. Review the final diff and apply the verification policy in `AGENTS.md`:
+   documentation-only checks for prose changes; complete repository gates once
+   for code, dependencies, executable configuration or mixed changes.
 7. Push a separate handoff commit containing the outcome, verification, known
    limits, and the exact next ticket prompt. The next ticket starts in another
    fresh session.
 
-The full repository gates remain mandatory. This workflow removes repeated
-broad exploration and noisy output; it does not weaken validation.
+The user approved a documentation-only exception on 2026-09-05. Its checks are
+diff whitespace, changed links/anchors, accuracy and instruction consistency;
+also verify handoff limits/history when affected. Full gates remain mandatory
+outside that exception; security and required CI checks are unchanged.
 
 ## Ticket template
 
@@ -84,21 +87,58 @@ HTTP result.
 - Load only the skill needed for the current job. More always-on instructions
   consume context and can conflict with each other.
 - Use a balanced current Codex model with medium reasoning for routine bounded
-  slices. Raise reasoning for novel architecture or authentication,
-  authorization, concurrency, messaging, migration, and external-effect work.
-  Check the current catalog rather than persisting model names that may expire.
+  slices. Raise reasoning for unresolved architectural or correctness questions;
+  required security evidence does not depend on model effort. Reuse dated
+  recommendations while applicable; refresh when stale or uncertain.
 
-## Current example: Fase 2 item 8
+## Cost controls and evidence (DEV-WF-01)
 
-The plan entry `Secret redaction e audit logs` crosses a shared logging concern
-and two business owners. Execute it as three milestones:
+The 2026-09-05 audit found a 308-line/24,249-byte handoff accumulating old
+milestones in Current state, including contradictory completion/test claims.
+The ten inspected handoff changes added more lines than they removed.
+This proves growing startup material, not its share of subscription usage.
+The user reports using Terra/medium for almost every roadmap execution, so
+switching to that configuration is not a new intervention. Historical model
+traces, Fast mode, tool/reasoning usage and quota deltas have not been measured.
+The active handoff now has a 60-line/4-KB ceiling; historical evidence is linked
+but excluded from routine startup. Keep task-specific detail in its catalog
+block. Do not copy finished ticket narratives back into Current state.
 
-1. Define and prove centralized secret-redaction behavior with canary values and
-   failure-path tests, without adding business audit events.
-2. Add structured audit events for Profile mutations, preserving Profile's
-   ownership, authorization, antiforgery, and data-classification boundaries.
-3. Add structured audit events for privileged Identity actions, including
-   authorization negatives and proof that Restricted values cannot enter logs.
+- Reuse the existing ticket and acceptance criteria. Split by independently
+  useful outcome, never merely to reduce file count. A smaller ticket still
+  pays startup, gates, review and two-commit handoff costs.
+- Read each relevant source once, then follow the diff. Search narrowly before
+  opening more files. Do not rerun planning or research resolved questions.
+- Use one agent by default. Delegate only when explicitly requested and when
+  independent work justifies duplicated context. Parallel shell reads do not
+  need additional agents.
+- After a failed check, inspect its relevant failure once and change the
+  hypothesis before retrying. Run the applicable checks once at the final state;
+  repeat only when subsequent changes or unresolved failures require it.
+  Poll long jobs at useful intervals and summarize results; elapsed test time
+  alone does not establish model token consumption.
+- Mechanical documentation can use low effort; prefer standard speed when
+  conserving usage. Keep final reports to outcome, evidence, limits and next step.
 
-Each milestone gets its own fresh session, focused tests, complete gates,
-functional commit and push, followed by a separate handoff commit and push.
+Selection reference checked 2026-09-05: GPT-5.6 Terra/medium for ordinary
+implementation, Luna/low for well-specified mechanical work; Gemini 3.8 Flash
+at its default effort is an alternative if available in the user's client.
+These are recommendations, not measured comparisons or automatic model changes.
+Refresh when stale or uncertain, not on every ticket. Official references:
+[OpenAI models](https://learn.chatgpt.com/docs/models),
+[usage guidance](https://learn.chatgpt.com/docs/pricing), and
+[Gemini catalog](https://ai.google.dev/gemini-api/docs/models).
+
+For the next three comparable tickets, record one optional row per ticket:
+
+| Ticket / model / effort / speed | 5h used before→after | Weekly used before→after | Retries / result |
+| --- | --- | --- | --- |
+| No measurements yet | Unknown | Unknown | Do not infer savings |
+
+Use account-visible counters when available, without credentials or raw session
+transcripts. Mark quota resets, other simultaneous usage and unavailable data;
+do not attribute those deltas solely to the ticket. Compare percentage-point
+deltas separately for each window, alongside defects and rework. Byte/line
+reduction measures startup material, not billed tokens or quota savings.
+Account settings and unused connectors need separate inspection if the measured
+cost remains high; do not change global configuration as part of a code ticket.

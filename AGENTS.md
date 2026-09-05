@@ -14,6 +14,9 @@ baseline.
   including the selected model/effort and the reason it fits the task. Check
   the provider's current catalog when model names or availability may have
   changed.
+- Keep that announcement to one sentence. Reuse a dated, verified model
+  recommendation while still applicable; refresh on availability changes,
+  uncertainty, or an explicit model comparison, not as routine task setup.
 - If the implementation changes provider, model, or reasoning effort during a
   task, announce the change and perform a final, read-only diff review with a
   different provider/model when available. Report the reviewer, findings,
@@ -41,10 +44,12 @@ baseline.
 - Execute one ticket per fresh session. Read only its handoff, catalog block,
   listed ADR/threat-model entries, affected files, and any catalog-cited plan
   anchor needed for a decision.
+- Reuse an existing ticket without re-slicing it. Do not split one outcome
+  into microtasks that each repeat startup, validation, and handoff overhead.
 - Keep tool output targeted: exclude agent worktrees, `bin/`, `obj/`, generated
   artifacts, broad document dumps, and full diffs unless required. Summarize
   verification output after checking the actual result.
-- Run focused checks while iterating and the complete repository gates once
+- Run focused checks while iterating and the applicable verification below
   before each ticket milestone. Commit and push the handoff separately as
   described below.
 - Follow `docs/development/task-slicing.md` for ticket structure, model/effort
@@ -108,8 +113,20 @@ baseline.
 
 ## Verification
 
+- Documentation-only exception (explicitly approved by the user on 2026-09-05):
+  when the entire change affects only prose/documentation, including agent
+  instructions, use `git diff --check`, verify changed local links/anchors,
+  and review the diff for accuracy and consistency. Do not run .NET restore,
+  format, build, or tests for that change. Check the handoff size/history when
+  affected and report these checks. This exception also applies when a ticket
+  skill refers to complete repository gates.
+- Classify by effect, not file extension: code, dependencies/lock files,
+  migrations, executable configuration, CI, scripts, and documentation consumed
+  as executable input still require the full gates. Mixed changes do too.
+  Security controls and required CI checks remain unchanged. Record known test
+  failures without treating them as resolved by this exception.
 - Run focused tests for edited behavior, including negative and failure paths.
-- Then run the repository gates:
+- For changes outside the documentation-only exception, run the repository gates:
 
   ```bash
   dotnet restore SquadUp.slnx --locked-mode
@@ -134,7 +151,10 @@ baseline.
 - A handoff-only commit does not trigger another handoff update; this exception
   prevents an infinite sequence of documentation commits.
 - Keep the current-state section concise and append one compact row to the
-  milestone history. Never place secrets, tokens, cookies, invite codes,
+  milestone history in `docs/session-handoff-history.md`; retain only the latest
+  row in the active handoff. Keep the active file within 60 lines and 4 KB;
+  replace completed state instead of appending it. Never place secrets, tokens,
+  cookies, invite codes,
   connection strings, or real user/provider identifiers in the handoff.
 - At each milestone, remind the user that starting a fresh Codex session can
   reduce context usage.
