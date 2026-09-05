@@ -7,21 +7,21 @@ current state at each milestone instead of accumulating completed tickets.
 
 ## Current state
 
-- Branch: `main`; F4-01 milestone `d7a33c8` pushed to `origin/main`.
-- Completed outcome: the Lobby host now composes `HybridCache` with a Redis L2
-  and an allowlisted read-projection adapter. Redis/cache failures bypass the
-  cache loader path without masking loader failures.
-- Boundaries: cache stores minimized read projections only; it neither authorizes
-  nor reserves seats. `JoinLobby` revalidates persisted aggregate state even if
-  a search is stale. Redis/lease failure always bypasses or limits reads, never
-  blocks writes or changes correctness.
+- Branch: `main`; F4-02 milestone `e742111` pushed to `origin/main`.
+- Completed outcome: recruiting search uses server-generated, versioned SHA-256
+  keys over normalized bounded filter/cursor/page inputs, with 10–20-second TTL
+  jitter and a local post-commit generation invalidation.
+- Boundaries: cached pages contain only publishable summaries; cache never
+  authorizes or reserves seats. `JoinLobby` always revalidates the persisted
+  aggregate. Invalidation is local only; entries on other hosts expire by TTL
+  until the later distributed mechanism is deliberately added.
 - Verification: locked restore, formatter verification, Release build and full
-  suite passed (132 tests); focused Lobby integration proves L1, L2 across
-  hosts, and create/join during Redis outage.
+  suite passed (133 tests); 21 focused Lobby endpoint/persistence tests passed,
+  including key/page isolation and post-create/post-join invalidation.
 - Current model recommendations were refreshed on 2026-09-05: GPT-5.6 Terra/
   medium for F4-01/02/05, Terra/high for F4-03, Sol/high for F4-04; Gemini 3.8
   Flash at the matching effort is the alternate reviewer.
-- Next product step: implement only `F4-02` in a fresh session, reading its
+- Next product step: implement only `F4-03` in a fresh session, reading its
   catalog block, TM-11/TM-12, data classification, `plan.md` §8, and affected
   Lobby host/Infrastructure/integration-test files. Full repository gates apply.
 
@@ -29,22 +29,24 @@ current state at each milestone instead of accumulating completed tickets.
 
 - Public Lobby facade currently exposes search/cancellation only; create/join
   forwarding and stale cache reads remain future work. Commands do not retry
-  automatically. Other subsystem limits live in their catalog/ADR evidence.
+  automatically. The local generation does not invalidate other hosts; F4-03
+  introduces only the bounded Redis hot-key lease, not stale serving.
 - Actual quota savings are unmeasured. Usage percentage is not a token count;
   record model, effort, speed, both quota windows and retries for comparison.
 
 ## Next-session prompt
 
-> F4-01 HybridCache/Redis L2 shipped at d7a33c8; locked restore, formatter,
-> Release build and 132 tests passed. Verify `main` and its separate handoff
-> commit, then implement only F4-02. Read its catalog block, TM-11/TM-12,
-> classification and `plan.md` §8; run focused tests and full repository gates.
+> F4-02 recruiting-search cache keys, TTL/jitter and local invalidation shipped
+> at e742111; locked restore, formatter, Release build and 133 tests passed.
+> Verify `main` and its separate handoff commit, then implement only F4-03.
+> Read its catalog block, TM-11/TM-12, classification and `plan.md` §8; run
+> focused contention/expiry/release/outage tests and full repository gates.
 
 ## Milestone history
 
 | Milestone commit | Completed outcome | Verification |
 | --- | --- | --- |
-| `d7a33c8` | F4-01: HybridCache/Redis L2 foundation | Locked restore, formatter, build and 132 tests passed |
+| `e742111` | F4-02: search cache keys, TTL/jitter and local invalidation | Locked restore, formatter, build and 133 tests passed |
 
 Older evidence is preserved in the archive linked above. After a milestone
 push, append its compact row to the archive and retain only the latest row
