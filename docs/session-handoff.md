@@ -8,8 +8,8 @@ execution state; `plan.md` remains authoritative for architectural decisions.
 ## Current state
 
 - Branch: `main`; functional changes are synchronized with `origin/main` at
-  `54d542b` (50-way Lobby join race proof and bounded concurrency retry). This
-  document is the separate handoff record for that milestone.
+  `e7db5dc` (resilient typed API-to-Lobby client). This document is the separate
+  handoff record for that milestone.
 - Context workflow milestone: `7dd7d8f docs: add context-efficient ticket
   workflow`. Broad work now uses the repository-local
   `$squad-up-to-tickets` skill, two to five vertical tickets when splitting is
@@ -228,10 +228,24 @@ execution state; `plan.md` remains authoritative for architectural decisions.
   19 tests; locked restore, formatter verification, Release CI build with zero
   warnings, and the complete suite passed — 124 tests, including 76 API
   integration tests.
-- Next task: Fase 3, item 8 (`F3-08`) — typed API→Lobby client with delegated
-  JWT, bounded timeouts, and circuit-breaker behavior. Do not add automatic
-  retries for Lobby commands unless an established Idempotency-Key contract
-  makes the retry safe.
+- Completed plan item: Fase 3, item 8 (`F3-08`) — the internal typed
+  API-to-Lobby client mints a short-lived delegated JWT on every call and only
+  accepts a configured HTTPS origin with absolute-path references. Separate
+  read and command pipelines bound concurrency, total/attempt timeouts, and
+  circuit breaking. Only reads receive one jittered transient retry; commands
+  never retry automatically.
+- Verification: focused client tests passed — 5 tests covering minimized JWT,
+  fixed origin/SSRF rejection, missing actor, command no-retry, circuit opening,
+  read retry, and command timeout. Locked restore, formatter verification,
+  Release CI build with zero warnings, and the complete suite passed — 129
+  tests, including 81 API integration tests.
+- Security and limits: the client neither forwards browser/provider credentials
+  nor exposes a public client contract. It adds no API facade, outbox, cache,
+  or automatic command retry. The next slice owns graceful translation of
+  internal dependency failures to public behavior.
+- Next task: Fase 3, item 9 (`F3-09`) — graceful degradation for internal reads
+  and commands, preserving accurate failures without falsely reporting command
+  completion.
 - CI repair: the Lobby container smoke now supplies an ephemeral, credential-free
   valid connection string solely for startup validation and probes `/health/live`.
   It no longer claims database readiness when no PostgreSQL container exists;
@@ -243,17 +257,17 @@ execution state; `plan.md` remains authoritative for architectural decisions.
 
 ## Next-session prompt
 
-> Inicie uma sessão nova após o milestone `4b501eb`, que conclui `F3-06` com
-> paginação keyset e projeções mínimas para busca de Lobby. Confirme este
-> handoff contra o Git e implemente somente `F3-07`: prova de 50 joins
-> concorrentes, sem overbooking e com um único fato local de conclusão. Os
-> gates passaram com 123 testes (76 de API); não adicione broker/outbox, cache
-> ou typed client.
+> Inicie uma sessão nova após o milestone `e7db5dc`, que conclui `F3-08` com o
+> cliente tipado API→Lobby, JWT delegado e pipelines resilientes. Confirme este
+> handoff contra o Git e implemente somente `F3-09`: degradação graciosa das
+> leituras e comandos internos, sem falso sucesso para comandos. Os gates
+> passaram com 129 testes (81 de API); não altere o contrato de retry de comando.
 
 ## Milestone history
 
 | Milestone commit | Completed outcome | Verification |
 | --- | --- | --- |
+| `e7db5dc` | F3-08: resilient typed API-to-Lobby client | Full suite: 129 passed |
 | `54d542b` | F3-07: 50-way Lobby join race / no overbooking | Full suite: 124 passed |
 | `088e87d` | Lobby service containerized with a pinned chiseled, non-root image | Repository gates and container smoke passed |
 | `d180257` | Fase 1 items 6–7: Testcontainers platform fixture, integration smoke, configuration validation, and User Secrets guidance | Repository gates and local platform integration passed |
