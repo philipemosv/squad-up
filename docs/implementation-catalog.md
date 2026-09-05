@@ -119,7 +119,22 @@ e recebem rejeição determinística. O retry de `xmin` é limitado pela capacid
 máxima do aggregate e permite observar cada preenchimento possível mais a
 leitura terminal. Um interceptor de teste registra somente `LobbyCompleted`
 após `SaveChanges` bem-sucedido e prova um único fato local de conclusão.
-### F3-08 — typed client API→Lobby/JWT/timeout/circuit breaker — Pendente
+### F3-08 — typed client API→Lobby/JWT/timeout/circuit breaker
+
+Fronteira: a API/BFF emite um JWT interno curto e delegado e chama somente a
+origem HTTPS configurada do Lobby. Ler: TM-03, TM-09, TM-10, TM-12, TM-15,
+classificação de dados e `plan.md` §4/§16 Fase 3. Aceite: nenhum cookie ou
+token de provedor atravessa a fronteira; rotas relativas impedem SSRF; comandos
+não recebem retry automático; leituras têm retry, timeout, limite de
+concorrência e circuit breaker delimitados.
+
+`F3-08-01` — typed client API→Lobby/JWT/timeout/circuit breaker — Concluído.
+O cliente interno emite o JWT delegado por chamada e separa pipelines de leitura
+e comando: ambos limitam concorrência, tentativas e circuito; somente leitura
+recebe uma repetição transitória com jitter. Os testes provam JWT mínimo,
+origem fixa, rejeição de rota SSRF/ator ausente, ausência de retry de comando,
+circuito aberto e timeout. Evidência: 5 testes focais; gates completos com 129
+testes aprovados.
 ### F3-09 — degradação graciosa interna — Pendente
 
 ## Fase 4 — cache distribuído

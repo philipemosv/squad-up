@@ -9,6 +9,7 @@ builder.Services.AddIdentityInfrastructure(builder.Configuration);
 builder.Services.AddBrowserSession(builder.Configuration);
 builder.Services.AddDiscordOAuth(builder.Configuration);
 builder.Services.AddInternalTokenIssuer(builder.Configuration);
+builder.Services.AddLobbyClient(builder.Configuration);
 builder.Services.AddProfileInfrastructure(builder.Configuration);
 
 var app = builder.Build();

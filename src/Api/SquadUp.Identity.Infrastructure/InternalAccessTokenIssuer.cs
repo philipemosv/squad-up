@@ -102,5 +102,16 @@ internal sealed class InternalAccessTokenIssuer : IInternalAccessTokenIssuer, ID
         return new JsonWebTokenHandler().CreateToken(descriptor);
     }
 
+    public string IssueLobbyDelegatedToken(
+        Guid delegatedUserId,
+        IReadOnlyCollection<string> roles,
+        IReadOnlyCollection<string> scopes) =>
+        Issue(new InternalAccessTokenRequest(
+            options.LobbyAudience,
+            options.ClientId,
+            scopes,
+            delegatedUserId,
+            roles));
+
     public void Dispose() => rsa.Dispose();
 }
