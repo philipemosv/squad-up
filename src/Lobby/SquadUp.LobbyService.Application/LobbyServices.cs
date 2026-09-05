@@ -49,6 +49,21 @@ public interface ILobbyReadCache
     public Task<TProjection> GetOrCreateAsync<TProjection>(
         string cacheKey,
         Func<CancellationToken, ValueTask<TProjection>> factory,
+        LobbyReadCacheEntryOptions? options,
         CancellationToken cancellationToken)
         where TProjection : class, IAllowlistedLobbyReadProjection;
+}
+
+public sealed record LobbyReadCacheEntryOptions(TimeSpan Expiration);
+
+/// <summary>
+/// Advances the local recruiting-search cache generation after a durable mutation.
+/// Older entries are intentionally left to their bounded TTL; no cross-host invalidation
+/// is implied by this contract.
+/// </summary>
+public interface ILobbySearchCacheInvalidator
+{
+    public long CurrentGeneration { get; }
+
+    public void Invalidate();
 }

@@ -8,7 +8,8 @@ namespace SquadUp.LobbyService.Infrastructure;
 
 internal sealed class LobbyCommandService(
     LobbyDbContext context,
-    IAuthorizationService authorization) : ILobbyCommandService
+    IAuthorizationService authorization,
+    ILobbySearchCacheInvalidator searchCacheInvalidator) : ILobbyCommandService
 {
     public async Task<CreateLobbyResult> CreateAsync(
         Guid ownerPlayerId,
@@ -76,6 +77,7 @@ internal sealed class LobbyCommandService(
         var lobby = new Lobby(Guid.CreateVersion7(), ownerPlayerId, request.Capacity, rankRequirement);
         context.Lobbies.Add(lobby);
         await context.SaveChangesAsync(cancellationToken);
+        searchCacheInvalidator.Invalidate();
 
         return CreateLobbyResult.Success(lobby.Id);
     }
@@ -172,6 +174,7 @@ internal sealed class LobbyCommandService(
             try
             {
                 await context.SaveChangesAsync(cancellationToken);
+                searchCacheInvalidator.Invalidate();
                 return LobbyCancellationResult.Success();
             }
             catch (DbUpdateConcurrencyException) when (attempt < maximumAttempts - 1)
@@ -221,6 +224,7 @@ internal sealed class LobbyCommandService(
             try
             {
                 await context.SaveChangesAsync(cancellationToken);
+                searchCacheInvalidator.Invalidate();
                 return LobbyMembershipResult.Success();
             }
             catch (DbUpdateConcurrencyException) when (attempt < lobby.Capacity)

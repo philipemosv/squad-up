@@ -98,4 +98,4 @@ public sealed record SearchRecruitingLobbiesRequest(
 /// </summary>
 public sealed record LobbySearchPageDto(
     IReadOnlyList<LobbySummaryDto> Items,
-    string? NextCursor);
+    string? NextCursor) : IAllowlistedLobbyReadProjection;

@@ -42,7 +42,9 @@ public static class LobbyPersistenceExtensions
                 tags: ["ready"]);
 
         services.AddScoped<ILobbyCommandService, LobbyCommandService>();
-        services.AddScoped<ILobbyQueryService, LobbyQueryService>();
+        services.AddScoped<LobbyQueryService>();
+        services.AddScoped<ILobbyQueryService>(serviceProvider => serviceProvider.GetRequiredService<LobbyQueryService>());
+        services.AddSingleton<ILobbySearchCacheInvalidator, NoOpLobbySearchCacheInvalidator>();
         services.AddScoped<IHttpIdempotencyLedger, HttpIdempotencyLedger>();
 
         return services;
@@ -64,5 +66,14 @@ public static class LobbyPersistenceExtensions
         {
             return false;
         }
+    }
+}
+
+internal sealed class NoOpLobbySearchCacheInvalidator : ILobbySearchCacheInvalidator
+{
+    public long CurrentGeneration => 0;
+
+    public void Invalidate()
+    {
     }
 }

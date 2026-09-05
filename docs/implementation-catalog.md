@@ -200,7 +200,7 @@ hosts, e Redis inacessível não bloqueia create/join. Evidência: testes focado
 do Lobby e gates completos aprovados (132 testes). Chaves, TTL, invalidação,
 lease, stale e métricas permanecem nos tickets seguintes.
 
-### F4-02 — chaves, TTL/jitter e invalidação local — Pendente
+### F4-02 — chaves, TTL/jitter e invalidação local — Concluído
 
 Resultado: busca recebe chaves versionadas e exclusivamente geradas no servidor,
 TTL com jitter limitado e invalidação local após mutação persistida. Invariante:
@@ -214,8 +214,13 @@ Fora: lease, stale serving, fallback Redis e subscriber/outbox. Aceite: testes
 cobrem isolamento por filtro/cursor, cardinalidade limitada, jitter nos limites,
 invalidação após mutação e projeção sem campos confidenciais desnecessários.
 Dependência: F4-01. Modelo: GPT-5.6 Terra/medium; Gemini 3.8 Flash/medium como
-revisor. Concluído quando os testes focados e gates completos passarem. Prompt:
-implementar somente F4-02, incluindo suas provas TM-11/TM-12.
+revisor. Concluído: busca usa chave SHA-256 versionada, gerada exclusivamente no
+servidor a partir de filtro/cursor/página normalizados e limitados, com TTL de
+10–20 segundos e jitter. Uma geração local avança somente após mutação
+persistida; entradas antigas expiram pelo TTL sem antecipar invalidação
+distribuída. A projeção cacheada contém apenas resumos publicáveis. Evidência:
+21 testes focados de persistência/endpoints e gates completos aprovados (133
+testes).
 
 ### F4-03 — lease Redis para hot key — Pendente
 

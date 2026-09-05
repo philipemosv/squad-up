@@ -230,10 +230,12 @@ public sealed class LobbyEndpointTests : IClassFixture<LobbyDatabaseFixture>
                     factoryCalls++;
                     return ValueTask.FromResult(new CacheProbeProjection("allowlisted"));
                 },
+                null,
                 CancellationToken.None);
             var l1 = await firstCache.GetOrCreateAsync(
                 cacheKey,
                 _ => ValueTask.FromException<CacheProbeProjection>(new InvalidOperationException("L1 cache miss")),
+                null,
                 CancellationToken.None);
 
             Assert.Equal("allowlisted", first.Value);
@@ -251,6 +253,7 @@ public sealed class LobbyEndpointTests : IClassFixture<LobbyDatabaseFixture>
             var l2 = await secondCache.GetOrCreateAsync(
                 cacheKey,
                 _ => ValueTask.FromException<CacheProbeProjection>(new InvalidOperationException("L2 cache miss")),
+                null,
                 CancellationToken.None);
 
             Assert.Equal("allowlisted", l2.Value);
@@ -282,6 +285,71 @@ public sealed class LobbyEndpointTests : IClassFixture<LobbyDatabaseFixture>
             rankOrdinal = 1
         }, "redis-outage-join");
         Assert.Equal(HttpStatusCode.NoContent, join.StatusCode);
+    }
+
+    [Fact]
+    public async Task SearchCacheIsIsolatedByPageAndInvalidatedLocallyAfterPersistedMutations()
+    {
+        await using var application = new LobbyApplication(
+            fixture.PostgreSql.GetConnectionString(),
+            fixture.Redis.GetConnectionString());
+        await application.MigrateAsync();
+        using var client = application.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
+        var ownerId = Guid.CreateVersion7();
+        var playerId = Guid.CreateVersion7();
+        var readToken = application.CreateDelegatedToken(ownerId, "lobby.read");
+        var writeToken = application.CreateDelegatedToken(ownerId, "lobby.write");
+        var playerToken = application.CreateDelegatedToken(playerId, "lobby.write");
+
+        Guid sentinelLobbyId;
+        using (var sentinel = await SendJsonAsync(client, HttpMethod.Post, "/lobbies", writeToken, new
+        {
+            capacity = 3,
+            gameId = "dota2",
+            minimumRankOrdinal = 1
+        }, "search-cache-sentinel"))
+        {
+            Assert.Equal(HttpStatusCode.Created, sentinel.StatusCode);
+            sentinelLobbyId = GetLobbyId(await sentinel.Content.ReadAsStringAsync());
+        }
+
+        var searchPath = $"/lobbies?gameId=dota2&cursor={LobbySearchCursor.Encode(sentinelLobbyId)}&pageSize=";
+        using var initiallyEmpty = await SendAsync(client, HttpMethod.Get, searchPath + "1", readToken);
+        Assert.Equal(HttpStatusCode.OK, initiallyEmpty.StatusCode);
+        Assert.Empty(GetSearchItems(await initiallyEmpty.Content.ReadAsStringAsync()));
+
+        for (var index = 0; index < 2; index++)
+        {
+            using var create = await SendJsonAsync(client, HttpMethod.Post, "/lobbies", writeToken, new
+            {
+                capacity = 3,
+                gameId = "dota2",
+                minimumRankOrdinal = 1
+            }, $"search-cache-create-{index}");
+            Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        }
+
+        using var pageOne = await SendAsync(client, HttpMethod.Get, searchPath + "1", readToken);
+        using var pageTwo = await SendAsync(client, HttpMethod.Get, searchPath + "2", readToken);
+        var pageOneItems = GetSearchItems(await pageOne.Content.ReadAsStringAsync());
+        var pageTwoItems = GetSearchItems(await pageTwo.Content.ReadAsStringAsync());
+        Assert.Single(pageOneItems);
+        Assert.Equal(2, pageTwoItems.Count);
+
+        var joinedLobbyId = pageOneItems[0].GetProperty("lobbyId").GetGuid();
+        using var join = await SendJsonAsync(client, HttpMethod.Post, $"/lobbies/{joinedLobbyId}/members", playerToken, new
+        {
+            discordUserId = "synthetic-discord-id",
+            displayName = "Synthetic Player",
+            gameId = "dota2",
+            rankOrdinal = 1
+        }, "search-cache-join");
+        Assert.Equal(HttpStatusCode.NoContent, join.StatusCode);
+
+        using var refreshed = await SendAsync(client, HttpMethod.Get, searchPath + "1", readToken);
+        var refreshedItem = Assert.Single(GetSearchItems(await refreshed.Content.ReadAsStringAsync()));
+        Assert.Equal(joinedLobbyId, refreshedItem.GetProperty("lobbyId").GetGuid());
+        Assert.Equal(1, refreshedItem.GetProperty("membersCount").GetInt32());
     }
 
     private static async Task AssertMemberOwnedByAuthenticatedSubjectAsync(
@@ -339,6 +407,13 @@ public sealed class LobbyEndpointTests : IClassFixture<LobbyDatabaseFixture>
     }
 
     private static Guid GetLobbyId(string content) => JsonDocument.Parse(content).RootElement.GetProperty("lobbyId").GetGuid();
+
+    private static List<JsonElement> GetSearchItems(string content) => JsonDocument.Parse(content)
+        .RootElement
+        .GetProperty("items")
+        .EnumerateArray()
+        .Select(item => item.Clone())
+        .ToList();
 
     private static async Task ExpireKeyAsync(LobbyApplication application, Guid ownerId, string key)
     {
