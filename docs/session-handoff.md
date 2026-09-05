@@ -7,27 +7,23 @@ current state at each milestone instead of accumulating completed tickets.
 
 ## Current state
 
-- Branch: `main`; workflow milestone `83fe785` pushed to `origin/main`.
-  This document is its separate handoff update; verify Git again.
-- Last functional milestone: `c7cc5fa`, F3-09-01, graceful API-to-Lobby
-  degradation. Search/cancellation failures become sanitized 503 Problem
-  Details; failed cancellation never returns false success.
-- Functional verification at that commit: locked restore, format verification,
-  Release CI build and all 131 tests passed (83 API integration tests).
-  These are historical results, not validation of subsequent edits.
-- Completed ticket: `DEV-WF-01`, workflow cost reduction; see the block in
-  [implementation-catalog.md](implementation-catalog.md). Compact handoff,
-  archived history and the approved documentation checks shipped in `83fe785`.
-- Scope: compact startup context, archive historical detail, avoid repeated
-  planning and measure usage. Security controls and required CI are unchanged.
-- Milestone checks: diff/links/consistency, handoff limits and archive comparison
-  passed. Earlier restore/format/Release build passed; suite: 130 passed, 1 failed in
-  `InvalidLobbyServiceNameStopsHostStartup`; see DEV-WF-01 evidence.
-- Documentation-only exception approved/applied on 2026-09-05: diff, changed
-  links and consistency checks; no .NET rerun. Full gates for executable changes.
-- Product next step: slice F4 distributed cache into two to five vertical
-  tickets with `$squad-up-to-tickets`; register IDs, then execute only the first
-  ticket in a fresh session. No F4 implementation has started.
+- Branch: `main`; F4 ticket-map milestone `2694e65` pushed to `origin/main`.
+- Completed outcome: F4 cache distributed was sliced into five ordered vertical
+  tickets in [implementation-catalog.md](implementation-catalog.md), from
+  HybridCache/Redis L2 composition through measurement. No F4 code started.
+- Boundaries: cache stores minimized read projections only; it neither authorizes
+  nor reserves seats. `JoinLobby` revalidates persisted aggregate state even if
+  a search is stale. Redis/lease failure always bypasses or limits reads, never
+  blocks writes or changes correctness.
+- Documentation-only verification: `git diff --check`, local-link/anchor check
+  and full diff consistency review passed. No .NET gates ran by the approved
+  documentation-only exception. Previous functional suite is historical only.
+- Current model recommendations were refreshed on 2026-09-05: GPT-5.6 Terra/
+  medium for F4-01/02/05, Terra/high for F4-03, Sol/high for F4-04; Gemini 3.8
+  Flash at the matching effort is the alternate reviewer.
+- Next product step: implement only `F4-01` in a fresh session, reading its
+  catalog block, TM-11/TM-12, data classification, `plan.md` §8, and affected
+  Lobby host/Infrastructure/integration-test files. Full repository gates apply.
 
 ## Relevant limits
 
@@ -39,17 +35,16 @@ current state at each milestone instead of accumulating completed tickets.
 
 ## Next-session prompt
 
-> DEV-WF-01 shipped at 83fe785; documentation checks passed. Earlier full suite:
-> 130 passes and one unresolved initialization-test failure (see catalog).
-> Verify main and its separate handoff commit. Slice F4 using squad-up-to-tickets,
-> register IDs, then execute its first ticket in a fresh session. Read only this
-> handoff and the relevant catalog block; do not rerun .NET for documentation.
+> F4 ticket map shipped at 2694e65; documentation checks passed, no F4 code
+> started. Verify `main` and its separate handoff commit, then implement only
+> F4-01. Read this handoff, its catalog block, TM-11/TM-12, classification and
+> `plan.md` §8; run focused tests and full repository gates before its milestone.
 
 ## Milestone history
 
 | Milestone commit | Completed outcome | Verification |
 | --- | --- | --- |
-| `83fe785` | DEV-WF-01: compact context and documentation-only checks | Diff, links, consistency, archive and size checks passed |
+| `2694e65` | F4 ticket map: five cache vertical slices | Diff, links and consistency checks passed |
 
 Older evidence is preserved in the archive linked above. After a milestone
 push, append its compact row to the archive and retain only the latest row

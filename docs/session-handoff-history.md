@@ -311,3 +311,4 @@ execution state; `plan.md` remains authoritative for architectural decisions.
 | `1e8d4b5` | Fase 3, item 4: Lobby create/search/join/leave/cancel HTTP endpoints | Repository gates and 120 tests passed; RFC 9457, IDOR, token-kind, and overposting coverage added |
 | `4b501eb` | Fase 3, item 6: Lobby keyset pagination and minimized search projections | Repository gates and 123 tests passed; continuation, input failures, anonymous rejection, and projection-minimization coverage added |
 | `9f804b7` | Fase 3, item 5: HTTP idempotency ledger for Lobby creation and join | Repository gates and 122 tests passed; duplicate, concurrent replay, conflict, owner isolation, expiry, and migration-replay coverage added |
+| `2694e65` | F4 ticket map: five ordered distributed-cache vertical slices | Documentation-only diff, local-link/anchor, and consistency checks passed |
