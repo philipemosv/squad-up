@@ -352,6 +352,55 @@ public sealed class LobbyEndpointTests : IClassFixture<LobbyDatabaseFixture>
         Assert.Equal(1, refreshedItem.GetProperty("membersCount").GetInt32());
     }
 
+    [Fact]
+    public async Task RedisLeaseCoordinatesContentionExpiresAndOnlyReleasesItsOwnToken()
+    {
+        const string cacheKey = "squadup:lobby:search:v1:synthetic-hot-key";
+        await using var firstApplication = new LobbyApplication(
+            fixture.PostgreSql.GetConnectionString(),
+            fixture.Redis.GetConnectionString());
+        await using var secondApplication = new LobbyApplication(
+            fixture.PostgreSql.GetConnectionString(),
+            fixture.Redis.GetConnectionString());
+        var first = firstApplication.Services.GetRequiredService<IRedisLeaseManager>();
+        var second = secondApplication.Services.GetRequiredService<IRedisLeaseManager>();
+
+        var firstLease = await first.TryAcquireAsync(cacheKey, TimeSpan.FromSeconds(1), CancellationToken.None);
+        Assert.NotNull(firstLease);
+        Assert.Null(await second.TryAcquireAsync(cacheKey, TimeSpan.FromSeconds(1), CancellationToken.None));
+
+        await firstLease.DisposeAsync();
+        var releasedLease = await second.TryAcquireAsync(cacheKey, TimeSpan.FromSeconds(1), CancellationToken.None);
+        Assert.NotNull(releasedLease);
+        await releasedLease.DisposeAsync();
+
+        var expiringLease = await first.TryAcquireAsync(cacheKey, TimeSpan.FromMilliseconds(50), CancellationToken.None);
+        Assert.NotNull(expiringLease);
+        await Task.Delay(TimeSpan.FromMilliseconds(100));
+        var replacementLease = await second.TryAcquireAsync(cacheKey, TimeSpan.FromSeconds(1), CancellationToken.None);
+        Assert.NotNull(replacementLease);
+
+        await expiringLease.DisposeAsync();
+        Assert.Null(await first.TryAcquireAsync(cacheKey, TimeSpan.FromSeconds(1), CancellationToken.None));
+        await replacementLease.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task RedisLeaseOutageBypassesRatherThanBlockingTheReadPath()
+    {
+        await using var application = new LobbyApplication(
+            fixture.PostgreSql.GetConnectionString(),
+            "localhost:1,abortConnect=false,connectTimeout=25,syncTimeout=25");
+        var leases = application.Services.GetRequiredService<IRedisLeaseManager>();
+
+        var lease = await leases.TryAcquireAsync(
+            "squadup:lobby:search:v1:synthetic-outage",
+            TimeSpan.FromSeconds(1),
+            CancellationToken.None);
+
+        Assert.Null(lease);
+    }
+
     private static async Task AssertMemberOwnedByAuthenticatedSubjectAsync(
         LobbyApplication application,
         Guid lobbyId,

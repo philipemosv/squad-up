@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using SquadUp.LobbyService.Application;
 using SquadUp.LobbyService.Domain;
+using StackExchange.Redis;
 
 namespace SquadUp.LobbyService.Infrastructure;
 
@@ -24,6 +25,7 @@ public static class LobbyReadCachingExtensions
         services.AddHybridCache();
 
         services.AddSingleton<ILobbyReadCache, LobbyReadCache>();
+        services.AddSingleton<IRedisLeaseManager>(_ => new RedisLeaseManager(configuration));
         services.Replace(ServiceDescriptor.Singleton<ILobbySearchCacheInvalidator, LobbySearchCacheGeneration>());
         services.Replace(ServiceDescriptor.Scoped<ILobbyQueryService, CachedLobbyQueryService>());
         return services;
@@ -91,9 +93,10 @@ internal sealed class LobbySearchCacheGeneration : ILobbySearchCacheInvalidator
 internal sealed class CachedLobbyQueryService(
     LobbyQueryService queries,
     ILobbyReadCache cache,
-    ILobbySearchCacheInvalidator invalidator) : ILobbyQueryService
+    ILobbySearchCacheInvalidator invalidator,
+    IRedisLeaseManager leases) : ILobbyQueryService
 {
-    public Task<LobbySearchPageDto> SearchRecruitingAsync(
+    public async Task<LobbySearchPageDto> SearchRecruitingAsync(
         SearchRecruitingLobbiesRequest request,
         CancellationToken cancellationToken)
     {
@@ -103,7 +106,16 @@ internal sealed class CachedLobbyQueryService(
         var cacheKey = LobbySearchCacheKey.Create(normalized, generation);
         var options = new LobbyReadCacheEntryOptions(LobbySearchCacheKey.CreateSearchExpiration());
 
-        return cache.GetOrCreateAsync(
+        await using var lease = await leases.TryAcquireAsync(
+            cacheKey,
+            LobbySearchCacheKey.LeaseDuration,
+            cancellationToken);
+        if (lease is null)
+        {
+            await Task.Delay(LobbySearchCacheKey.CreateLeaseContentionDelay(), cancellationToken);
+        }
+
+        return await cache.GetOrCreateAsync(
             cacheKey,
             token => new ValueTask<LobbySearchPageDto>(queries.SearchRecruitingAsync(normalized, token)),
             options,
@@ -115,6 +127,10 @@ internal static class LobbySearchCacheKey
 {
     private const int MinimumSearchTtlSeconds = 10;
     private const int MaximumSearchTtlSeconds = 20;
+    private const int MinimumLeaseContentionDelayMilliseconds = 10;
+    private const int MaximumLeaseContentionDelayMilliseconds = 25;
+
+    public static TimeSpan LeaseDuration => TimeSpan.FromSeconds(2);
 
     public static SearchRecruitingLobbiesRequest Normalize(SearchRecruitingLobbiesRequest request)
     {
@@ -142,4 +158,111 @@ internal static class LobbySearchCacheKey
     public static TimeSpan CreateSearchExpiration() => TimeSpan.FromSeconds(Random.Shared.Next(
         MinimumSearchTtlSeconds,
         MaximumSearchTtlSeconds + 1));
+
+    public static TimeSpan CreateLeaseContentionDelay() => TimeSpan.FromMilliseconds(Random.Shared.Next(
+        MinimumLeaseContentionDelayMilliseconds,
+        MaximumLeaseContentionDelayMilliseconds + 1));
+}
+
+/// <summary>
+/// Coordinates a best-effort Redis lease for a server-generated cache key. It is
+/// not a distributed transaction and never establishes business exclusivity.
+/// </summary>
+internal interface IRedisLeaseManager
+{
+    public Task<IAsyncDisposable?> TryAcquireAsync(
+        string serverGeneratedCacheKey,
+        TimeSpan duration,
+        CancellationToken cancellationToken);
+}
+
+internal sealed class RedisLeaseManager(IConfiguration configuration) : IRedisLeaseManager, IDisposable
+{
+    private const string ReleaseScript = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) end return 0";
+    private readonly object multiplexerLock = new();
+    private ConnectionMultiplexer? multiplexer;
+    private bool multiplexerInitialized;
+
+    public async Task<IAsyncDisposable?> TryAcquireAsync(
+        string serverGeneratedCacheKey,
+        TimeSpan duration,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(serverGeneratedCacheKey);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(duration, TimeSpan.Zero);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var redis = GetMultiplexer();
+        if (redis is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            var database = redis.GetDatabase();
+            var key = CreateLeaseKey(serverGeneratedCacheKey);
+            var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
+            var acquired = await database.StringSetAsync(key, token, duration, When.NotExists);
+            return acquired ? new RedisLease(database, key, token) : null;
+        }
+        catch (RedisException)
+        {
+            return null;
+        }
+    }
+
+    public void Dispose() => multiplexer?.Dispose();
+
+    private ConnectionMultiplexer? GetMultiplexer()
+    {
+        lock (multiplexerLock)
+        {
+            if (multiplexerInitialized)
+            {
+                return multiplexer;
+            }
+
+            multiplexerInitialized = true;
+            var connectionString = configuration.GetConnectionString("LobbyCache");
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                return null;
+            }
+
+            try
+            {
+                var options = ConfigurationOptions.Parse(connectionString);
+                options.AbortOnConnectFail = false;
+                options.ConnectRetry = 0;
+                multiplexer = ConnectionMultiplexer.Connect(options);
+                return multiplexer;
+            }
+            catch (RedisException)
+            {
+                return null;
+            }
+        }
+    }
+
+    private static RedisKey CreateLeaseKey(string serverGeneratedCacheKey)
+    {
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(serverGeneratedCacheKey))).ToLowerInvariant();
+        return $"squadup:lobby:search:lease:v1:{hash}";
+    }
+
+    private sealed class RedisLease(IDatabase database, RedisKey key, RedisValue token) : IAsyncDisposable
+    {
+        public async ValueTask DisposeAsync()
+        {
+            try
+            {
+                await database.ScriptEvaluateAsync(ReleaseScript, [key], [token]);
+            }
+            catch (RedisException)
+            {
+                // Lease release is best effort. Expiry is the safety net when Redis is unavailable.
+            }
+        }
+    }
 }

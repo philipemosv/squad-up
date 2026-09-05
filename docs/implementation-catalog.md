@@ -222,7 +222,7 @@ distribuída. A projeção cacheada contém apenas resumos publicáveis. Evidên
 21 testes focados de persistência/endpoints e gates completos aprovados (133
 testes).
 
-### F4-03 — lease Redis para hot key — Pendente
+### F4-03 — lease Redis para hot key — Concluído
 
 Resultado: uma hot key selecionada coordena réplicas com lease curto Redis
 `SET NX PX`, token aleatório e release compare-and-delete. Invariante: lease
@@ -234,8 +234,14 @@ prováveis: Infrastructure Redis adapter, cache read path e integração Redis.
 Fora: stale response, limite DB e benchmark. Aceite: testes de contenção,
 expiração, token de release incorreto e Redis indisponível. Dependência: F4-02.
 Modelo: GPT-5.6 Terra/high; Gemini 3.8 Flash/high como revisor. Concluído
-quando as provas de concorrência e gates completos passarem. Prompt: implementar
-somente F4-03; declarar explicitamente o limite de transação e a semântica do lease.
+com lease Redis de dois segundos sobre a busca de recrutamento; ele envolve a
+operação cache-aside, mas não compartilha transação com PostgreSQL nem torna
+leitura ou join exclusivos. A aquisição usa `SET NX PX` com token aleatório, e
+o release executa compare-and-delete; uma disputa ou Redis indisponível espera
+10–25 ms e tenta L2/bypass. Testes Redis reais provam disputa, expiração,
+release com token antigo e outage. Evidência: restore locked, formatação,
+build Release e 135 testes passaram. Prompt: implementar somente F4-03;
+declarar explicitamente o limite de transação e a semântica do lease.
 
 ### F4-04 — busca stale e bypass/fallback limitado — Pendente
 
